@@ -13,6 +13,7 @@ from mongoengine.queryset.visitor import Q
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
 from loc_data.config import System_Settings
+from . import models
 
 
 PER_PAGE = System_Settings['pagination'].get('per_page', 10)
@@ -25,5 +26,10 @@ PER_PAGE = System_Settings['pagination'].get('per_page', 10)
 #    return data
 
 def index():
+    app = models.App()
+    app._id = "03110001"
+    app.appname = "test app"
+    app.save()
+
     return 'Hello'
 

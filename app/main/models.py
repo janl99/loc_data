@@ -7,8 +7,8 @@ from flask import url_for
 from loc_data import db
 from loc_data.config import System_Settings
 
-class App(db.Documnet):
-    appid = db.StringField(max_length=16,required=True,unique=True)
+class App(db.Document):
+    _id = db.StringField(max_length=8,required=True,unique=True)
     appname = db.StringField(max_length=32,required=True)
 
     def save(self,*args,**kwargs):
@@ -19,8 +19,9 @@ class App(db.Documnet):
 
 
 class Last_data(db.Document):
-    appid = db.StringField(max_length=16,default='unknow app',required=True)
-    kid = db.StringField(max_length=32,required=True)
+    _id = db.StringField(max_length=24,required=True,unique=True)
+    appid = db.StringField(max_length=8,default='unknow app',required=True)
+    kid = db.StringField(max_length=16,required=True)
     data = db.StringField(required=True)
 
     def save(self,*args,**kwargs):
@@ -30,8 +31,9 @@ class Last_data(db.Document):
         return self.appid + '-' + self.kid
 
 class His_data(db.Document):
-    appid = db.StringField(max_length=16,default='unknow app',required=True)
-    kid = db.StringField(max_length=32,required=True)
+    _id = db.StringField(max_length=24,required=True,unique=True)
+    appid = db.StringField(max_length=8,default='unknow app',required=True)
+    kid = db.StringField(max_length=16,required=True)
     data_time = db.DateTimeField()
     data = db.StringField(required=True)
 
