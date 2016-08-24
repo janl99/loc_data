@@ -34,7 +34,9 @@ def create_app(config_name):
 
     from main.urls import main as main_blueprint
 #    from accounts.urls import accounts as accounts_blueprint
+    from api_1_0.urls import api as api_1_0_blueprint
     app.register_blueprint(main_blueprint)
+    app.register_blueprint(api_1_0_blueprint,url_prefix='/api/1.0')
 #    app.register_blueprint(blog_admin_blueprint, url_prefix='/admin')
 #    app.register_blueprint(accounts_blueprint, url_prefix='/accounts')
 

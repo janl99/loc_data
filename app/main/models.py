@@ -22,6 +22,7 @@ class Last_data(db.Document):
     _id = db.StringField(max_length=24,required=True,unique=True)
     appid = db.StringField(max_length=8,default='unknow app',required=True)
     kid = db.StringField(max_length=16,required=True)
+    time = db.DateTimeField()
     data = db.StringField(required=True)
 
     def save(self,*args,**kwargs):
@@ -34,7 +35,7 @@ class His_data(db.Document):
     _id = db.StringField(max_length=24,required=True,unique=True)
     appid = db.StringField(max_length=8,default='unknow app',required=True)
     kid = db.StringField(max_length=16,required=True)
-    data_time = db.DateTimeField()
+    time = db.DateTimeField()
     data = db.StringField(required=True)
 
     def save(self,*args,**kwargs):
