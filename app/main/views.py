@@ -26,10 +26,10 @@ PER_PAGE = System_Settings['pagination'].get('per_page', 10)
 #    return data
 
 def index():
-    app = models.App()
-    app._id = "03110001"
-    app.appname = "test app"
-    app.save()
+    #app = models.App()
+    #app._id = "03110001"
+    #app.appname = "test app"
+    #app.save()
 
     return 'Hello'
 

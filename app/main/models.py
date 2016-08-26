@@ -32,14 +32,13 @@ class Last_data(db.Document):
         return self.appid + '-' + self.kid
 
 class His_data(db.Document):
-    _id = db.StringField(max_length=24,required=True,unique=True)
     appid = db.StringField(max_length=8,default='unknow app',required=True)
     kid = db.StringField(max_length=16,required=True)
     time = db.DateTimeField()
     data = db.StringField(required=True)
 
     def save(self,*args,**kwargs):
-        return super(Last_data,self).save(*args,**kwargs)
+        return super(His_data,self).save(*args,**kwargs)
 
     def __unicode__(self):
         return self.appid + '-' + self.kid + '-' + self.data_time
