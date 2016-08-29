@@ -15,7 +15,6 @@ from mongoengine.queryset.visitor import Q
 from loc_data.config import System_Settings
 from main import models
 
-
 PER_PAGE = System_Settings['pagination'].get('per_page', 10)
 
 def get_result():
