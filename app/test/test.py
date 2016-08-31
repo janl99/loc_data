@@ -12,7 +12,7 @@ f_count = 0
 stime = datetime.now()
 td = datetime.now()
 d = td
-for kid in range(1,101):
+for kid in range(1,2):
     # code...
     d = td + timedelta(minutes=30) 
     data = {'ArchivesID':str(2314),'Lng':115.152263,'Lat':38.854287,'Accuracy':0,'GPSTime':\
@@ -22,8 +22,13 @@ for kid in range(1,101):
             'googleAddress':'河北省保定市顺平县永平路','ID':40629,'LocationType':'Manual',\
             'LocationSource':'HB_MALS_BNET','LeaveStatus':0}
 
-    values={'appid':'03110001','kid':str(2314),'time':d.strftime('%Y-%m-%d %H:%M:%S'),'data':json.dumps(data)}
+    values={'appid':'03110001','kid':str(2314),'status':str(1),'errcode':'ok','loctype':'Manual',\
+            'locsource':'HB_MALS_BNET','time':d.strftime('%Y-%m-%d %H:%M:%S'),'data':json.dumps(data)}
+    print 'url:' + url
+    print 'data:' + json.dumps(values)
+    print 'headers:' + json.dumps(headers)
     r = requests.post(url,json.dumps(values),headers)
+    print r.text
     try:
         result = json.loads(r.text)
         if result["result"] == True:

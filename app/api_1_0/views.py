@@ -20,7 +20,103 @@ PER_PAGE = System_Settings['pagination'].get('per_page', 10)
 def get_result():
     return {"result":True,"msg":"OK"}
 
+def save_statistics(appid,status,errcode,loctype,locsource):
+    st = models.Loc_statistics()
+    tk = datetime.now().strftime('%Y-%m-%d')
+    try:
+        st = models.Loc_statistics.objects(_id=tk).first()
+    except Exception,e:
+        print e
+        st = None
+
+    if st == None:
+        st = models.Loc_statistics()
+        st._id = tk 
+        st.data = '{}'
+
+    d = json.loads(st.data)
+    if not d.has_key('date'):
+        d['date']= tk 
+
+    if d.has_key('recv'):
+        c = int(d['recv'])
+        d['recv'] = c + 1
+    else:
+        d['recv']= 1
+
+    d_app = {}
+    if d.has_key('app'):
+        d_app = d['app']
+    else:
+        d['app']=d_app
+
+    d_app_curr = {}
+    if d_app.has_key(appid):
+        d_app_curr = d_app[appid]
+    else:
+        d_app[appid]=d_app_curr
+
+    d_app_curr_source = {}
+    if d_app_curr.has_key('source'):
+        d_app_curr_source = d_app_curr['source']
+    else:
+        d_app_curr_source = {}
+
+    d_app_curr_source_curr = {}
+    if d_app_curr_source.has_key(locsource):
+        d_app_curr_source_curr = d_app_curr_source[locsource] 
+    else:
+        d_app_curr_source_curr = {}
+
+    if d_app_curr_source_curr.has_key('recv'):
+        c_source = int(d_app_curr_source_curr['recv'])
+        d_app_curr_source_curr['recv'] = c_source + 1
+    else:
+        d_app_curr_source_curr['recv'] = 1
+
+
+    d_app_curr_source_curr_status = {}
+    if d_app_curr_source_curr.has_key("status"):
+        d_app_curr_source_curr_status = d_app_curr_source_curr['status']
+    else:
+        d_app_curr_source_curr_status = {}
+
+    if status =='1':
+        if d_app_curr_source_curr_status.has_key('OK'):
+            c_ok = int(d_app_curr_source_curr_status['OK'])
+            d_app_curr_source_curr_status['OK'] = c_ok + 1
+        else:
+            d_app_curr_source_curr_status['OK'] = 1
+    else:
+        if d_app_curr_source_curr_status.has_key(errcode):
+            c_err = int(d_app_curr_source_curr_status[errcode])
+            d_app_curr_source_curr_status[errcode]=c_err + 1
+        else:
+            d_app_curr_source_curr_status[errcode] = 1
+
+    d_app_curr_source_curr['status']=d_app_curr_source_curr_status
+    d_app_curr_source[locsource] = d_app_curr_source_curr
+    d_app_curr['source'] = d_app_curr_source
+
+
+    d_app_curr_type = {}
+    if d_app_curr.has_key('type'):
+        d_app_curr_type = d_app_curr['type']
+    else:
+        d_app_curr_type = {}
+
+    if d_app_curr_type.has_key(loctype):
+        c_type = int(d_app_curr_type[loctype])
+        d_app_curr_type[loctype] = c_type + 1
+    else:
+        d_app_curr_type[loctype] = 1
+    d_app_curr['type'] = d_app_curr_type
+
+    st.data = json.dumps(d)
+    st.save()
+
 def loc_data():
+    stime = datetime.now()
     r = get_result() 
     try:
         print request.get_data()
@@ -28,7 +124,12 @@ def loc_data():
         appid = data['appid']
         kid =   data['kid']
         time =  data['time']
+        status = data['status']
+        errcode = data['errcode']
+        loctype = data['loctype']
+        locsource = data['locsource']
         content =  data['data']
+
 
         last_data = models.Last_data()
         last_data._id = appid + ":" + kid
@@ -45,13 +146,22 @@ def loc_data():
         his_data.time = time
         his_data.data = content
         his_data.save()
+
+        save_statistics(appid,status,errcode,loctype,locsource)
+
+        etime = datetime.now()
+        r["time"]=(etime-stime).microseconds
+
     except Exception, e:
+        print e
+        r["time"]=(datetime.now()-stime).microseconds
         r["result"]=False
         r["msg"]=e
 
     return jsonify(r) 
 
 def last_data(kids):
+    stime = datetime.now()
     r = get_result()
     try:
         print kids
@@ -65,7 +175,7 @@ def last_data(kids):
         for kid in kids.split(','):
             ids.append(appid+":"+kid)
         print ids 
-        stime = datetime.now()
+
         datas = models.Last_data.objects.filter(Q(_id__in=ids)).order_by('-time')
         etime = datetime.now()
         print datas
@@ -73,12 +183,17 @@ def last_data(kids):
         r["len"]=len(datas)
         r["time"]=(etime-stime).microseconds
     except Exception,e:
+        print e
+        r["data"]=[]
+        r["len"]=0
+        r["time"]=(datetime.now()-stime).microseconds
         r["result"]=False
         r["msg"] = e
 
     return jsonify(r) 
 
 def his_data(kid):
+    stime = datetime.now()
     r = get_result()
     try:
         print kid
@@ -106,21 +221,56 @@ def his_data(kid):
         page = int(request.args.get('page','1')) 
         print str(page)
 
-        stime = datetime.now()
+
         datas = models.His_data.objects.filter(appid=appid,kid=kid,time__gte=st,time__lt=et).order_by('-time')
         print type(datas)
         data_list = []
-        pdatas = datas.paginate(page,PER_PAGE)
+        pdatas = datas.paginate(page,PER_PAGE,False)
         print type(pdatas)
-        data_list = pdatas.items
+        print '--------------------------------------------------------'
+        if type(pdatas).__str__() == "404: Not Found":
+            print "get 404 not found data."
+            data_list = []
+        else:
+            data_list = pdatas.items
 
         etime = datetime.now()
         r["data"]=data_list
         r["len"]=len(data_list)
         r["time"]=(etime-stime).microseconds
     except Exception,e:
+        print e
+        r["data"]=[]
+        r["len"]= 0
+        r["time"]=(datetime.now()-stime).microseconds
         r["result"]=False
         r["msg"] = e
 
     return jsonify(r)
+
+def statistics(kids):
+    stime = datetime.now()
+    r = get_result()
+    try:
+        #print kids
+        #print request.args.items().__str__()
+        ids = kids.split(',')
+        #print ids 
+
+        datas = models.Loc_statistics.objects.filter(Q(_id__in=ids)).order_by('-_id')
+        etime = datetime.now()
+        #print datas
+        r["data"]=datas
+        r["len"]=len(datas)
+        r["time"]=(etime-stime).microseconds
+    except Exception,e:
+        print e
+        r["data"]=[]
+        r["len"]=0
+        r["time"]=(datetime.now()-stime).microseconds
+        r["result"]=False
+        r["msg"] = e
+
+    return jsonify(r) 
+
 

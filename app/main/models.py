@@ -43,7 +43,15 @@ class His_data(db.Document):
     def __unicode__(self):
         return self.appid + '-' + self.kid + '-' + self.data_time
 
+class Loc_statistics(db.Document):
+    _id = db.StringField(max_length=10,required=True,unique=True)
+    data = db.StringField(required=True)
 
+    def save(self,*args,**kwargs):
+        return super(Loc_statistics,self).save(*args,**kwargs)
+
+    def __unicode__(self):
+        return self._id
 
 
 
