@@ -5,18 +5,39 @@ loc_data:
   ports:
     - "8000:8000"
   links:
-    - mongo:mongo
+    - mysql:mysql
+    - redis:redis
+    #- mongo:mongo
   # volumes:
   #   - /usr/src/app/static
   env_file: .env
 
-mongo:
+mysql:
   # restart: always
-  image: mongo:latest
+  image: mysql 
   ports:
-    - "27017:27017"
-  env_file: .env
-
+    - "3306:3306"
   volumes:
-    - /mongo/data
+    - ./mysql_data:/var/lib/mysql
+  environment:
+    - MYSQL_DATABASE=loc_data
+    - MYSQL_ROOT_PASSWORD=loc_data#123456
+
+#mongo:
+  # restart: always
+  #  image: mongo:latest
+  #  ports:
+  #  - "27017:27017"
+  #env_file: .env
+  #volumes:
+  #- /home/janl/code/python/loc_data/data/:/data
+
+redis:
+  image: redis:latest
+  ports:
+    - "6379:6379"
+  volumes:
+    - ./redis_data:/var/redis/data
+  environment:
+    LC_ALL: C.UTF-8
 

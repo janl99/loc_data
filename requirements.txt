@@ -4,5 +4,6 @@ flask-login
 flask-admin
 Flask-WTF
 WTForms
-mongoengine
-flask_mongoengine
+flask-sqlalchemy
+SQLAlchemy
+
