@@ -8,7 +8,7 @@ from flask import current_app, make_response,json
 from flask.views import MethodView
 #from flask_login import login_required, current_user
 #from werkzeug.contrib.atom import AtomFeed
-from mongoengine.queryset.visitor import Q
+#from mongoengine.queryset.visitor import Q
 #from . import models, signals, forms
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
@@ -54,12 +54,58 @@ def __update_statistics(appid,status,errcode,loctype,locsource):
     """
     pass
 
+def __build_date_list(st,et):
+    print "---build date list---"
+    r = []
+    if st > datetime.now():
+        st = datetime.now()
+    if et > datetime.now():
+        et = datetime.now()
+    delta = et - st
+    print "datediff days: %s" % str(delta.days)
+    if delta.days <= 0: #same day
+        print "st and et is same day."
+        if (datetime.now() - et).days == 0: # same day and today
+            print "st and et is same day and today."
+            t = datetime.now().strftime('%Y%m%d')
+            print t
+            r.append(t)
+            return r
+        elif (datetime.now() - et).days > 0:  # same old day
+            print "st and et is same day befor today."
+            return r.append(et.strftime('%Y%m%d'))
+    else:
+        print "st and et is diff day."
+        for i in range(delta.days):
+            r.append((st + iatetime.timedelta(i)).strftime('%Y%m%d'))
+    print "--build date list end.---"
+    return r
+
 def __build_hisdata_query(appid,kid,status,errcode,st,et):
+    print "-----------start build query------------------------"
+    dl = __build_date_list(st,et)
+    print dl
+    #kwargs = {'appid':appid,'kid':kid,'time':st,'time':et}
     #todo 1: check status and errcode isNoneOrEmpty
     if __Is_NoneOrEmpty(status) and __Is_NoneOrEmpty(errcode):
         #todo 2: query without status and errcode
-        q = db.session.query(his_data).from_statement(text("select * from his_data "))
-        print q
+        print "status and errcode is none or empty."
+        todaysuffix = datetime.now().strftime('%Y%m%d')
+        print todaysuffix
+        if todaysuffix in dl:
+            print "query include today table."
+            q = db.session.query(his_data).\
+                    filter(appid==appid,kid==kid).\
+                    order_by(his_data.time)
+        else:
+            print "query not include today table."
+            q = db.session.query(his_data).\
+                    filter(his_data.id == 0)
+        for suffix in dl:
+            te = his_data.model(suffix)
+            tq = db.session.query(te).filter(appid==appid,kid==kid)
+            q.union(tq) 
+            #print q.all()
         return q
     elif not __Is_NoneOrEmpty(status) and __Is_NoneOrEmpty(errcode):
        #todo 3: query with status and without errcode
@@ -70,7 +116,7 @@ def __build_hisdata_query(appid,kid,status,errcode,st,et):
     elif not __Is_NoneOrEmpty(status) and not __Is_NoneOrEmpty(errcode):
         #todo 5: query width status and errcode both.
         pass
-
+    print "----------------build query end-----------------------"
 
 def loc_data():
     """
@@ -110,17 +156,17 @@ def loc_data():
         rediskey = __get_redis_Key(appid,kid)
         redis.set(rediskey,data)
         #todo4: save data to mysql
-        his_data = models.his_data()
-        #his_data.id = appid + ":" + kid
-        his_data.appid = appid
-        his_data.kid = kid
-        his_data.time = time
-        his_data.status = status
-        his_data.errcode = errcode
-        his_data.loctype = loctype
-        his_data.locsource = locsource
-        his_data.data = content
-        db.session.add(his_data)
+        hdata = his_data()
+        #hdata.id = appid + ":" + kid
+        hdata.appid = appid
+        hdata.kid = kid
+        hdata.time = time
+        hdata.status = status
+        hdata.errcode = errcode
+        hdata.loctype = loctype
+        hdata.locsource = locsource
+        hdata.data = content
+        db.session.add(hdata)
         db.session.commit()
         __update_statistics(appid,status,errcode,loctype,locsource)
         etime = datetime.now()
@@ -175,7 +221,7 @@ def last_data(kids):
         r["msg"] = e
     return jsonify(r) 
 
-def his_data(kid):
+def h_data(kid):
     stime = datetime.now()
     r = __get_result()
     try:
@@ -215,19 +261,8 @@ def his_data(kid):
         print "page:%s" % str(page)
         print "----------------end-----------------------------------"
         #todo 6: get page and default value 1
-        '''
-        if status == '' and errorcode == '':
-            datas = models.his_data.objects.filter(appid=appid,kid=kid,time__gte=st,time__lt=et).order_by('-time')
-        elif status != '' and errorcode == '':
-            datas = models.his_data.objects.filter(appid=appid,kid=kid,status=status,time__gte=st,time__lt=et).order_by('-time')
-        elif status == '' and errorcode != '':
-            datas = models.is_data.objects.filter(appid=appid,kid=kid,errorcode=errorcode,time__gte=st,time__lt=et).order_by('-time')
-        elif status != '' and errorcode != '':
-            datas = models.his_data.objects.filter(appid=appid,kid=kid,status=status,errorcode=errorcode,time__gte=st,time__lt=et).order_by('-time')
-        '''
         q = __build_hisdata_query(appid,kid,status,errcode,st,et)
-        print type(q)
-        print q.all()
+
         data_list = []
         pdatas = q.paginate(page,PER_PAGE,False)
         #print type(pdatas)
@@ -241,6 +276,8 @@ def his_data(kid):
         #    data_list = []
         #else:
         data_list = pdatas.items
+        print "---show query datas.---"
+        print pdatas.items 
 
         etime = datetime.now()
         r["data"]=data_list

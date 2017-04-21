@@ -77,6 +77,46 @@ class his_data(db.Model):
     def __unicode__(self):
         return self.appid + '-' + self.kid + '-' + self.data_time
 
+    def __repr__(self):
+        return "<his_data %d>" % self.id
+
+    _mapper = {}
+
+    @staticmethod
+    def model(datesuffix=None):
+        class_name = query_tablename = "his_data"
+        if datesuffix is not None:
+            class_name = query_tablename = "his_data%s" % datesuffix
+
+        #print class_name
+        #print query_tablename
+
+        ModelClass = his_data._mapper.get(class_name,None)
+        #print ModelClass
+
+        if ModelClass is None:
+            #print "ModelClass is None"
+            ModelClass = type(class_name,(db.Model,),{
+                '__module__':__name__,
+                '__name__':class_name,
+                '__tablename':query_tablename,
+                'id': db.Column(db.Integer,primary_key=True),
+                'appid':db.Column(db.String(16)),
+                'kid':db.Column(db.String(16)),
+                'time':db.Column(db.DateTime),
+                'status':db.Column(db.String(16)),
+                'errcode':db.Column(db.String(16)),
+                'loctype':db.Column(db.String(16)),
+                'locsource':db.Column(db.String(16)),
+                'data':db.Column(db.Text),
+            })
+            his_data._mapper[class_name] = ModelClass
+
+        cls = ModelClass
+        return cls
+
+
+
 
 class loc_statistics(db.Model):
     """
