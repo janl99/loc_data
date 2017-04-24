@@ -12,17 +12,22 @@ f_count = 0
 stime = datetime.now()
 td = datetime.now()
 d = td
+lng = 115.152263
+lat = 38.854287
+aid = 84971 
+id = 1
+appid = "0311000001"
 for kid in range(1,2):
     # code...
     d = td + timedelta(minutes=30) 
-    data = {'ArchivesID':str(2314),'Lng':115.152263,'Lat':38.854287,'Accuracy':0,'GPSTime':\
+    data = {'ArchivesID':str(aid),'Lng':lng,'Lat':lat,'Accuracy':0,'GPSTime':\
              d.strftime('%Y-%m-%d %H:%M:%S'),\
-            'CreateTime':d.strftime('%Y-%m-%d %H:%M:%S'),'Elevation':0,'IsCrossBorder':1,'Status':1,'Note':'ok',\
-            'Address':'河北省保定市顺平县永平路','googleLng':115.152263,'googleLat':38.854287,\
-            'googleAddress':'河北省保定市顺平县永平路','ID':40629,'LocationType':'Manual',\
+            'CreateTime':d.strftime('%Y-%m-%d %H:%M:%S'),'Elevation':0,'IsCrossBorder':0,'Status':1,'Note':'ok',\
+            'Address':'河北省保定市顺平县永平路','googleLng':lng,'googleLat':lat,\
+            'googleAddress':'河北省保定市顺平县永平路','ID':id + kid,'LocationType':'Manual',\
             'LocationSource':'HB_MALS_BNET','LeaveStatus':0}
 
-    values={'appid':'0311000001','kid':str(2314),'status':str(1),'errcode':'130','loctype':'Manual',\
+    values={'appid':appid,'kid':str(aid),'status':str(1),'errcode':'','loctype':'Manual',\
             'locsource':'HB_MALS_BNET','time':d.strftime('%Y-%m-%d %H:%M:%S'),'data':json.dumps(data)}
     print 'url:' + url
     print 'data:' + json.dumps(values)

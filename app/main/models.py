@@ -26,6 +26,9 @@ class app(db.Model):
     def __unicode__(self):
         return self.appid + '-' + self.appname
 
+    def __json__(self):
+        return ['id','appid','appname','token']
+
 
 #class Last_data(db.Document):
 #'''
@@ -115,7 +118,8 @@ class his_data(db.Model):
         cls = ModelClass
         return cls
 
-
+    def __json__(self):
+        return ['id','appid','kid','time','status','errcode','loctype','locsource','data']
 
 
 class loc_statistics(db.Model):
@@ -151,6 +155,8 @@ class loc_statistics(db.Model):
     def __unicode__(self):
         return self._id
 
+    def __json__(self):
+        return ['id','appid','appcount','success_data','failed_data']
 
 
 

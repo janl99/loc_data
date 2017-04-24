@@ -14,6 +14,9 @@ from mongoengine.queryset.visitor import Q
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
 from loc_data.config import System_Settings
 from . import models
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 
 PER_PAGE = System_Settings['pagination'].get('per_page', 10)

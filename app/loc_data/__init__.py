@@ -36,6 +36,9 @@ def create_app(config_name):
 #   login_manager.init_app(app)
 #   principals.init_app(app)
 
+    from main.sqlalchemy_json_encoder import AlchemyEncoder
+    app.json_encoder = AlchemyEncoder
+
     from main.urls import main as main_blueprint
 #   from accounts.urls import accounts as accounts_blueprint
     from api_1_0.urls import api as api_1_0_blueprint
