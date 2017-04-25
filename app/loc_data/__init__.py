@@ -12,11 +12,13 @@ from flask import Flask
 #from flask_principal import Principal     
 from flask_sqlalchemy import SQLAlchemy
 from flask_redis import FlaskRedis
+from flask_marshmallow import Marshmallow
 
 from config import config
 
 db = SQLAlchemy()
 redis = FlaskRedis() 
+ma = Marshmallow()
 
 #login_manager = LoginManager()
 #login_manager.session_protection = 'strong'
@@ -32,6 +34,7 @@ def create_app(config_name):
     config[config_name].init_app(app)
 
     db.init_app(app)
+    ma.init_app(app)
     redis.init_app(app)
 #   login_manager.init_app(app)
 #   principals.init_app(app)

@@ -4,9 +4,8 @@
 import datetime, hashlib, urllib
 from flask import url_for
 #import markdown2, bleach
-from loc_data import db
+from loc_data import db,ma
 from loc_data.config import System_Settings
-
 
 class app(db.Model):
     """
@@ -28,31 +27,6 @@ class app(db.Model):
 
     def __json__(self):
         return ['id','appid','appname','token']
-
-
-#class Last_data(db.Document):
-#'''
-#每个kid的最后位置数据
-#--------------------------------------------
-#准备放到redis数据库中，取消了类型实体定义。
-#原则，接口收到的json串，直截取出标识，然后存入redis，返回时取出数据原封
-#不动的返回,存什么，取的时候得什么。
-#'''
-#    _id = db.StringField(max_length=24,required=True,unique=True)
-#    appid = db.StringField(max_length=10,default='unknow app',required=True)
-#    kid = db.StringField(max_length=16,required=True)
-#    time = db.DateTimeField()
-#    status = db.StringField(max_length=10,required=True)
-#    errcode = db.StringField(max_length=16,required=True)
-#    loctype = db.StringField(max_length=16,required=True)
-#    locsource = db.StringField(max_length=16,required=True)
-#    data = db.StringField(required=True)
-#
-#    def save(self,*args,**kwargs):
-#        return super(Last_data,self).save(*args,**kwargs)
-#
-#    def __unicode__(self):
-#        return self.appid + '-' + self.kid
 
 class his_data(db.Model):
     """ 
@@ -121,7 +95,6 @@ class his_data(db.Model):
     def __json__(self):
         return ['id','appid','kid','time','status','errcode','loctype','locsource','data']
 
-
 class loc_statistics(db.Model):
     """
     接收到的历史位置数据统计
@@ -158,6 +131,9 @@ class loc_statistics(db.Model):
     def __json__(self):
         return ['id','appid','appcount','success_data','failed_data']
 
+class his_data_schema(ma.ModelSchema):
+    class Meta:
+        model = his_data
 
 
 

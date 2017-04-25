@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 
 from urlparse import urljoin
-from datetime import datetime, timedelta
+from datetime import datetime,timedelta,time
 from flask import request, redirect, render_template, url_for, abort, flash, g, session,json,jsonify
 from flask import current_app, make_response,json
 from flask.views import MethodView
@@ -13,9 +13,10 @@ from flask.views import MethodView
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
 from loc_data.config import System_Settings
-from main.models import his_data 
-from loc_data import db,redis
+from main.models import his_data,his_data_schema 
+from loc_data import db,redis,ma
 from sqlalchemy import text
+
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -123,6 +124,75 @@ def __build_hisdata_query(appid,kid,status,errcode,st,et):
         pass
     print "----------------build query end-----------------------"
 
+def __loc_data_check(his_data):
+    """
+    loc_data.postdata check 
+    if all passed  return true else return false
+    """
+    r = __get_result()
+    #todo1: check appid,kid
+    if __Is_NoneOrEmpty(his_data.appid):
+        r["result"] = False
+        r["msg"] = "invalid appid."
+        return r
+    if __Is_NoneOrEmpty(his_data.kid):
+        r["result"] = False
+        r["msg"] = "invalid kid."
+        return r
+    #todo2: check appid is allowed.
+    if not __Check_AppidAllowed(his_data.appid):
+        r["result"] = False
+        r["msg"] = "appid is not allowed."
+        return r
+
+    return r
+
+def __last_data_check(kids,appid):
+    """
+    last_data param check
+    if no kid in kids or appid invalid return false else true
+    """
+    r = __get_result()
+    if __Is_NoneOrEmpty(appid):
+        r["result"]=False
+        r["msg"] ="invalid appid" 
+        return jsonify(r)
+    if __Is_NoneOrEmpty(appid):
+        r["result"] = False
+        r["msg"] = "appid is not allowed."
+        return r
+    ta = kids.split(',')
+    if len(ta) <= 0:
+        r["result"] = False
+        r["msg"] = "invalid kids."
+        return r
+
+    return r
+
+def __h_data_check(kid,appid):
+    """
+    h_data query param check 
+    if all passed return true else false
+    """
+    r = __get_result()
+    #todo1: check appid,kid
+    if __Is_NoneOrEmpty(kid):
+        r["result"] = False
+        r["msg"] = "invalid kid."
+        return r
+    if __Is_NoneOrEmpty(appid):
+        r["result"] = False
+        r["msg"] = "invalid appid."
+        return r
+    #todo2: check appid is allowed.
+    if not __Check_AppidAllowed(his_data.appid):
+        r["result"] = False
+        r["msg"] = "appid is not allowed."
+        return r
+
+    return r
+
+
 def loc_data():
     """
     receive post data and save. 
@@ -132,59 +202,26 @@ def loc_data():
     stime = datetime.now()
     r = __get_result() 
     try:
-        #print request.get_data()
-        #val = request.get_data()
-        #print type(val)
-        #print val
-        data = json.loads(request.get_data())
-        #print type(data)
-        #todo0: receive json data
-        appid = data['appid']
-        kid =   data['kid']
-        time =  data['time']
-        status = data['status']
-        errcode = data['errcode']
-        loctype = data['loctype']
-        locsource = data['locsource']
-        content =  data['data']
-        #todo1: check appid,kid
-        if __Is_NoneOrEmpty(appid):
-            r["result"] = False
-            r["msg"] = "invalid appid."
-            return r
-        if __Is_NoneOrEmpty(kid):
-            r["result"] = False
-            r["msg"] = "invalid kid."
-            return r
-        #todo2: check appid is allowed.
-        if not __Check_AppidAllowed(appid):
-            r["result"] = False
-            r["msg"] = "appid is not allowed."
-            return r
-        #todo3: build redis key  
-        rediskey = __get_redis_Key(appid,kid)
-        #todo4: build his_data entity 
-        hdata = his_data()
-        hdata.appid = appid
-        hdata.kid = kid
-        hdata.time = time
-        hdata.status = status
-        hdata.errcode = errcode
-        hdata.loctype = loctype
-        hdata.locsource = locsource
-        hdata.data = content
-        #todo5: save his_data entity to redis
-        print "----------hdata serialize ...------------"
-        redis_data = json.dumps(hdata)
-        print redis_data
-        th = json.loads(redis_data)
-        print th
-        print "-----------------------------------------"
+        print "todo1: get post data"
+        val = request.get_data()
+        schema = his_data_schema()
+        print "todo2: deseariler his_data"
+        h =  schema.loads(val).data
+        print "todo3: data check"
+        c = __loc_data_check(h)
+        if not  c["result"]:
+            return c
+        print "todo4: build redis key"
+        rediskey = __get_redis_Key(h.appid,h.kid)
+        print "todo5: save his_data to redis"
+        redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
-        #todo6: save hist_data to mysql database.
-        db.session.add(hdata)
+        print "todo6: save hist_data to mysql database."
+        h.id = None
+        db.session.add(h)
         db.session.commit()
-        __update_statistics(appid,status,errcode,loctype,locsource)
+        print "todo7: update loc data statistics."
+        __update_statistics(h.appid,h.status,h.errcode,h.loctype,h.locsource)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception, e:
@@ -203,56 +240,21 @@ def last_data(kids):
     stime = datetime.now()
     r = __get_result()
     try:
-        print "---------last data param----------------"
-        print kids
-        print request.args.items().__str__()
-        print "----------------------------------------"
-        #todo 1: get appid and check it allowed
+        print "todo 1: get query param and check" 
         appid = request.args.get('appid','') 
-        if __Is_NoneOrEmpty(appid):
-            r["result"]=False
-            r["msg"] ="invalid appid" 
-            return jsonify(r)
-        if __Is_NoneOrEmpty(appid):
-            r["result"] = False
-            r["msg"] = "appid is not allowed."
-            return r
-        #todo 2: loop get data by kids
+        c = __last_data_check(kids,appid)
+        if not c["result"]:
+            return c
+        print "todo 2: loop get data by kids from redis"
         data = []
         for kid in kids.split(','):
             if __Is_NoneOrEmpty(kid):
                 continue
             rediskey = __get_redis_Key(appid,kid)
             d = redis.get(rediskey)
-            print "--------------redis get data----------"
-            print type(d)
-            print d
-            print "---------------json.locads------------"
-            i = json.loads(d)
-            print type(i)
-            print i
-            print "---------------build his_data----------"
-            td = his_data() 
-            print type(td)
-            print td.appid
-            print i["appid"]
-            print type(i["time"])
-            print i["time"]
-
-            td.id = 0
-            td.appid = i["appid"]
-            td.kid = i["kid"]
-            td.time = i["time"] 
-            td.status =i["status"] 
-            td.errcode = i["errcode"]
-            td.loctype = i["loctype"]
-            td.locsource = i["locsource"]
-            td.data = i["data"] 
-            print type(td)
-            print td
-            print "-------------------------------------------"
-            data.append(td)
-        print data 
+            schema = his_data_schema()
+            h = schema.loads(d).data
+            data.append(h)
         etime = datetime.now()
         r["data"]=data
         r["len"]=len(data)
@@ -270,26 +272,20 @@ def h_data(kid):
     stime = datetime.now()
     r = __get_result()
     try:
-        #print kid
-        #print request.args.items().__str__()
-        #todo 1: check kid
-        if __Is_NoneOrEmpty(kid):
-            r["result"]=False
-            r["msg"] ="invalid kid" 
-            return jsonify(r)
-        #todo 2: check appid
+        print "todo 1: check kid and appid"
         appid = request.args.get('appid','') 
-        if __Is_NoneOrEmpty(appid):
-            r["result"]=False
-            r["msg"] ="invalid app" 
-            return jsonify(r)
-        #todo 3: get status,errcode whith no check
+        c = __h_data_check(kid,appid)
+        if not c["result"]:
+            return c
+        print "todo 2: get status,errcode whith no check"
         status = request.args.get('status','')
         errcode = request.args.get('errorcode','')
-        #todo 4: init starttime and endtime
+        print "todo 4: init starttime and endtime and set default st = today,et= today"
         d = datetime.now()
-        init_stime = datetime.strptime(d.strftime('%Y-%m-%d') + ' 00:00:00','%Y-%m-%d %H:%M:%S')
-        init_etime = init_stime + timedelta(days = 1) 
+        init_stime = datetime.strptime(datetime.combine(d.date,time.min),'%Y-%m-%d %H:%M:%S')
+        init_etime = datetime.strptime(datetime.combine(d.date,time.max),'%Y-%m-%d %H:%M:%S') 
+        print init_stime 
+        print init_etime
         #todo 5: get starttime and endtime by init value
         str_stime = request.args.get('stime',init_stime.strftime('%Y-%m-%d %H:%M:%S'))
         str_etime = request.args.get('etime',init_etime.strftime('%Y-%m-%d %H:%M:%S'))

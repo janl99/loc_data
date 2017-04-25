@@ -6,4 +6,5 @@ Flask-WTF
 WTForms
 flask-sqlalchemy
 SQLAlchemy
+flask-marshmallow
 
