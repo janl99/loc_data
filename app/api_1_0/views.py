@@ -98,8 +98,9 @@ def __build_hisdata_query(appid,kid,status,errcode,st,et):
         if todaysuffix in dl:
             print "query include today table."
             q = db.session.query(his_data).\
-                    filter(appid==appid,kid==kid).\
-                    order_by(his_data.time)
+                    filter(appid==appid,kid==kid,his_data.time.between(st,et)).\
+                    order_by("time")
+            print q
         else:
             print "query not include today table."
             q = db.session.query(his_data).\
@@ -111,7 +112,8 @@ def __build_hisdata_query(appid,kid,status,errcode,st,et):
             #print q.all()
         return q
     elif not __Is_NoneOrEmpty(status) and __Is_NoneOrEmpty(errcode):
-       #todo 3: query with status and without errcode
+        #todo 3: query with status and without errcode
+        print "query with status and without errcode"
         pass
     elif __Is_NoneOrEmpty(status) and not __Is_NoneOrEmpty(errcode):
         #todo 4: query without status and with errcode
@@ -131,11 +133,11 @@ def loc_data():
     r = __get_result() 
     try:
         #print request.get_data()
-        val = request.get_data()
+        #val = request.get_data()
         #print type(val)
         #print val
         data = json.loads(request.get_data())
-        print type(data)
+        #print type(data)
         #todo0: receive json data
         appid = data['appid']
         kid =   data['kid']
@@ -161,9 +163,6 @@ def loc_data():
             return r
         #todo3: build redis key  
         rediskey = __get_redis_Key(appid,kid)
-
-
-
         #todo4: build his_data entity 
         hdata = his_data()
         hdata.appid = appid
@@ -173,12 +172,15 @@ def loc_data():
         hdata.errcode = errcode
         hdata.loctype = loctype
         hdata.locsource = locsource
-        #hdata.data = content
+        hdata.data = content
         #todo5: save his_data entity to redis
         print "----------hdata serialize ...------------"
-        print json.dumps(hdata)
+        redis_data = json.dumps(hdata)
+        print redis_data
+        th = json.loads(redis_data)
+        print th
         print "-----------------------------------------"
-        redis.set(rediskey,hdata)
+        redis.set(rediskey,redis_data)
         #todo6: save hist_data to mysql database.
         db.session.add(hdata)
         db.session.commit()
@@ -234,6 +236,10 @@ def last_data(kids):
             print type(td)
             print td.appid
             print i["appid"]
+            print type(i["time"])
+            print i["time"]
+
+            td.id = 0
             td.appid = i["appid"]
             td.kid = i["kid"]
             td.time = i["time"] 
@@ -241,7 +247,7 @@ def last_data(kids):
             td.errcode = i["errcode"]
             td.loctype = i["loctype"]
             td.locsource = i["locsource"]
-            td.data = d
+            td.data = i["data"] 
             print type(td)
             print td
             print "-------------------------------------------"
@@ -301,21 +307,9 @@ def h_data(kid):
         print "----------------end-----------------------------------"
         #todo 6: get page and default value 1
         q = __build_hisdata_query(appid,kid,status,errcode,st,et)
-
         data_list = []
         pdatas = q.paginate(page,PER_PAGE,False)
-        #print type(pdatas)
-        #print '--------------------------------------------------------'
-        #for p in dir(pdatas):
-        #    print p
-        #print pdatas.pages
-
-        #if type(pdatas).__str__() == "404: Not Found":
-        #    print "get 404 not found data."
-        #    data_list = []
-        #else:
         data_list = pdatas.items
-
         print "---show query datas.---"
         print data_list 
         datalen = len(data_list)
@@ -342,7 +336,7 @@ def h_data(kid):
         r["pages"] = pdatas.pages
         r["time"]=(etime-stime).microseconds
     except Exception,e:
-        print 
+        print e
         r["data"]=[]
         r["len"]= 0
         r["page"]= 1
