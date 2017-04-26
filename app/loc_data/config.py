@@ -10,6 +10,10 @@ System_Settings = {
         'admin_per_page': int(os.environ.get('admin_per_page', 10)),
         'archive_per_page': int(os.environ.get('admin_per_page', 20)),
     },
+    'query_setting':{
+        'max_days_once': int(os.environ.get('max_days',31)),
+        'max_days_before_today': int(os.environ.get('max_days_before_today',540))
+        },
     'copyright': {
         'display_copyright': os.environ.get('allow_donate', 'true').lower() == 'true',
         'copyright_msg': os.environ.get('copyright_msg', 'The article is not allowed to repost unless author authorized').decode('utf8')
