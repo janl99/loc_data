@@ -28,6 +28,28 @@ class app(db.Model):
     def __json__(self):
         return ['id','appid','appname','token']
 
+class last_data(db.Model):
+    """
+    最后状态数据，用于按条件查询数据
+    """
+    id =        db.Column(db.Integer,primary_key=True)
+    appid =     db.Column(db.String(16))
+    kid =       db.Column(db.String(16))
+    time =      db.Column(db.DateTime)
+    status =    db.Column(db.String(16))
+    errcode =   db.Column(db.String(16))
+    loctype =   db.Column(db.String(16))
+    locsource = db.Column(db.String(16))
+
+    def __unicode__(self):
+        return self.appid + '-' + self.kid + '-' + self.data_time
+
+    def __repr__(self):
+        return "<his_data %d>" % self.id
+
+    def __json__(self):
+        return ['id','appid','kid','time','status','errcode','loctype','locsource']
+
 class his_data(db.Model):
     """ 
     历史位置数据

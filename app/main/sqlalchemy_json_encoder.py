@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
 
 from datetime import datetime,date,time
 from sqlalchemy.ext.declarative import DeclarativeMeta
@@ -13,9 +15,8 @@ class AlchemyEncoder(json.JSONEncoder):
                 #print "model class field: %r" % field
                 value = o.__getattribute__(field)
                 if isinstance(value,date):
-                    #print "value is date:"
-                    #print type(value)
-                    #print value
+                    data[field] = value.isoformat()
+                elif isinstance(value,datetime):
                     data[field] = value.isoformat()
                 else:
                     try:

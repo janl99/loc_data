@@ -13,7 +13,7 @@ from flask.views import MethodView
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
 from loc_data.config import System_Settings
-from main.models import his_data,his_data_schema 
+from main.models import app,his_data,his_data_schema,last_data 
 from loc_data import db,redis,ma
 from sqlalchemy import text
 
@@ -27,6 +27,7 @@ PER_PAGE = System_Settings['pagination'].get('per_page', 10)
 MAX_DAYS_ONCE = System_Settings['query_setting'].get('max_days_once',31)
 #query starttime must  between  18 month nearst  30 * 18 month = 540 days
 MAX_DAYS_BEFORE_TODAY = System_Settings['query_setting'].get('max_days_before_today',540)
+#redis last_data key profix
 LAST_LOCATION_REDIS_KEY_PREFIX = "LL"
 
 def __get_result():
@@ -57,73 +58,78 @@ def __get_redis_Key(appid,kid):
     """
     return LAST_LOCATION_REDIS_KEY_PREFIX + ":" + appid.strip() + ":" + kid.strip()
 
-def __update_statistics(appid,status,errcode,loctype,locsource):
+def __update_statistics(appid,kid,status,errcode,loctype,locsource):
     """
     update loc data statictics data.
     """
     pass
 
 def __build_date_list(st,et):
-    print "---build suffix list---"
     r = []
-    curr = datetime.now()
-    if st < curr and curr < et: #same day
-        print " now is between st and et"
-        r.append(datetime.now().strftime('%Y%m%d'))
-
-    for i in range(delta.days):
-        r.append((st + datetime.timedelta(i)).strftime('%Y%m%d'))
-    print "--build date list end.---"
+    tt = st
+    st_suffix = datetime.strftime(tt,'%Y%m%d')
+    et_suffix = datetime.strftime(et,'%Y%m%d')
+    r.append(st_suffix)
+    if st_suffix == et_suffix:
+        return r
+    else:
+        while True:
+            tt = tt + datetime.timedelta(days=1)
+            tt_suffix = datetime.strftime(tt,'%Y%m%d') 
+            if r.index(tt_suffix) < 0:
+                r.append(tt_suffix)
+            if tt_suffix == et_suffix:
+                break
     return r
 
 def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,isquerytoday):
-    if isquerytoday:
-        q = db.session.query(his_data).filter(his_data.id == 0)
+    if isquerytoday == False:
+        q = db.session.query(his_data).filter(1 < 0)
     else:
-        q = db.session.query(his_data).filter(appid==appid,kid==kid,his_data.time.between(st,et))
+        q = db.session.query(his_data).filter(his_data.appid==appid,his_data.kid==kid,his_data.time.between(st,et))
         if not __Is_NoneOrEmpty(status):
-            q.filter(status==status)
+            q.filter(his_data.status==status)
         if not __Is_NoneOrEmpty(errcode):
-            q.filter(errcode==errcode)
+            q.filter(his_data.errcode==errcode)
         if not __Is_NoneOrEmpty(loctype):
-            q.filter(loctype==loctype)
+            q.filter(his_data.loctype==loctype)
         if not __Is_NoneOrEmpty(locsource==locsource):
-            q.filter(locsource==locsource)
+            q.filter(his_data.locsource==locsource)
     q.order_by("time")
     return q
 
 def __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix):
     te = his_data.model(suffix)
-    q = db.session.query(te).filter(appid==appid,kid==kid,te.time.between(st,et))
+    q = db.session.query(te).filter(te.appid==appid,te.kid==kid,te.time.between(st,et))
     if not __Is_NoneOrEmpty(status):
-        q.filter(status==status)
+        q.filter(te.status==status)
     if not __Is_NoneOrEmpty(errcode):
-        q.filter(errcode==errcode)
+        q.filter(te.errcode==errcode)
     if not __Is_NoneOrEmpty(loctype):
-        q.filter(loctype==loctype)
+        q.filter(te.loctype==loctype)
     if not __Is_NoneOrEmpty(locsource==locsource):
-        q.filter(locsource==locsource)
+        q.filter(te.locsource==locsource)
     return q
 
 def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
-    print "-----------start build query------------------------"
     is_query_his_data = False
     dl = __build_date_list(st,et)
     print dl
     todaysuffix = datetime.now().strftime('%Y%m%d')
-    print todaysuffix
+    #print todaysuffix
     if todaysuffix in dl:
         print "query include today table."
         dl.remove(todaysuffix)
+        is_query_his_data = True
     q = __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,is_query_his_data)
-    print q
+    #print q
     for suffix in dl:
+        print "suffix:%s" % suffix
         tq = __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix) 
-        q.union(tq)
-        print "suffix:%s" % suffix 
+        q = q.union(tq)
+
         print q
     return q
-    print "----------------build query end-----------------------"
 
 def __loc_data_check(his_data):
     """
@@ -155,10 +161,10 @@ def __last_data_check(kids,appid):
     """
     r = __get_result()
     if __Is_NoneOrEmpty(appid):
-        r["result"]=False
+        r["result"]=Fals
         r["msg"] ="invalid appid" 
         return jsonify(r)
-    if __Is_NoneOrEmpty(appid):
+    if not __Check_AppidAllowed(appid):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
@@ -167,8 +173,60 @@ def __last_data_check(kids,appid):
         r["result"] = False
         r["msg"] = "invalid kids."
         return r
-
     return r
+
+def __query_data_check(appid):
+    """
+    check appid for q_data 
+    """
+    r = __get_result()
+    if __Is_NoneOrEmpty(appid):
+        r["result"]=Fals
+        r["msg"] ="invalid appid" 
+        return jsonify(r)
+    if not __Check_AppidAllowed(appid):
+        r["result"] = False
+        r["msg"] = "appid is not allowed."
+        return r
+    return r
+
+def __query_last_data(appid,kid,status,errcode,loctype,locsource):
+    """
+    query last_data by appid,kid,status,errcode,loctype,locsource
+    return last_data array
+    """
+    q = last_data.query().filter(appid == appid)
+    if not __Is_NoneOrEmpty(kid):
+        q.filter(kid == kid)
+    if not __Is_NoneOrEmpty(status):
+        q.filter(status == status)
+    if not __Is_NoneOrEmpty(errcode):
+        q.filter(errcode == errcode)
+    if not __Is_NoneOrEmpty(loctype):
+        q.filter(loctype == loctype)
+    if not __Is_NoneOrEmpty(locsource):
+        q.filter(locsource = locsource)
+
+    r = q.all()
+    return r
+
+def __update_last_data(appid,kid,status,errcode,loctype,locsource):
+    """
+    get last_data by appid,kid
+    when exist update status,errcode,loctype,locsource
+    when not exit insert last_data
+    """
+    l = db.session.query(last_data).filter(appid==appid,kid==kid).first()
+    if l == None:
+        l = last_data()
+        l.appid = appid
+        l.kid = kid
+    l.status = status
+    l.errcode = errcode
+    l.loctype = loctype
+    l.locsource = locsource
+    db.session.add(l)
+    db.session.commit()
 
 def __h_data_check(kid,appid):
     """
@@ -208,18 +266,18 @@ def __h_data_check_time(stime,etime):
     """
     r = __get_result()
     st = et = None
-    print "-------------h_date stime and etime check----------------"
-    print "stime:%s,etime:%s" %(stime,etime)
-    print "stime type:%s" % type(stime)
-    print "etime type;%s" % type(etime)
+    #print "-------------h_date stime and etime check----------------"
+    #print "stime:%s,etime:%s" %(stime,etime)
+    #print "stime type:%s" % type(stime)
+    #print "etime type;%s" % type(etime)
     if __Is_NoneOrEmpty(stime) and __Is_NoneOrEmpty(etime):
-        print "both not set stime and etime"
+        #print "both not set stime and etime"
         st = datetime.combine(datetime.now().date(),time.min)
         et = datetime.combine(datetime.now().date(),time.max) 
         return r,st,et
 
     if not __Is_NoneOrEmpty(stime) and not  __Is_NoneOrEmpty(etime): 
-        print "both set stime and etime"
+        #print "both set stime and etime"
         try:
             st = datetime.strptime(stime,'%Y-%m-%d %H:%M:%S')
             et = datetime.strptime(etime,'%Y-%m-%d %H:%M:%S')
@@ -229,38 +287,38 @@ def __h_data_check_time(stime,etime):
             r["msg"] = "invalid time param,format must like:2017-04-25 00:00:00"
             return r,st,et
     else: 
-        print "not both set stime and etime"
+        #print "not both set stime and etime"
         r["result"] = False
         r["msg"] = "invalid time param,must both set stime and etime or both not set stime and etime."
         return r,st,et
     if st == None or et == None:
-        print "st == None or et == None"
+        #print "st == None or et == None"
         r["result"] = False
         r["msg"] = "invalid time param.param is None"
         return r,st,et
     if not isinstance(st,date) or not isinstance(et,date):
-        print "not isinstance(st,date) or not isinstance(et,date)"
+        #print "not isinstance(st,date) or not isinstance(et,date)"
         r["result"] = False
         r["msg"] = "invalid time param. parm is not datetime"
         return r,st,et
     if et <= st :
-        print "et <= st"
+        #print "et <= st"
         r["result"] = False
         r["msg"] = "invalid time param. must etime > stime"
         return r,st,et
     if (et - st).days > MAX_DAYS_ONCE:
-        print "(et - st).days > 31: %d" % (et - st).days
+        #print "(et - st).days > 31: %d" % (et - st).days
         r["result"] = False
         r["msg"] = "invalid time param. must (etime - stime).days <= 31"
         return r,st,et
-    print type(datetime.now())
-    print type(st)
+    #print type(datetime.now())
+    #print type(st)
     if (datetime.now() - st).days > MAX_DAYS_BEFORE_TODAY :
         print "(datetime.now() - st).months > 18:%d" %  (datetime.now() - st).days
         r["result"] = False
         r["msg"] = "invalid time param. only can get 18 months data nearst"
         return r,st,et
-    print "--------------h_data stime and etime check end----------------"
+    #print "--------------h_data stime and etime check end----------------"
     return r,st,et
 
 def loc_data():
@@ -286,12 +344,14 @@ def loc_data():
         print "todo5: save his_data to redis"
         redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
-        print "todo6: save hist_data to mysql database."
+        print "todo6: update last data"
+        __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
+        print "todo7: save hist_data to mysql database."
         h.id = None
         db.session.add(h)
         db.session.commit()
-        print "todo7: update loc data statistics."
-        __update_statistics(h.appid,h.status,h.errcode,h.loctype,h.locsource)
+        print "todo8: update loc data statistics."
+        __update_statistics(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception, e:
@@ -301,7 +361,7 @@ def loc_data():
         r["msg"]=e
     return jsonify(r)
 
-def last_data(kids):
+def l_data(kids):
     """
     get some kid last locdata, by kids.
     kids is string split by ','. eg.  kids = "kid1,kid2,kid3"
@@ -337,6 +397,42 @@ def last_data(kids):
         r["result"]=False
         r["msg"] = e
     return jsonify(r) 
+
+def q_data(appid):
+    """
+    query data by appid,kid,status,errcode,loctype,locsource
+    """
+    stime = datetime.now()
+    r = __get_result()
+    try:
+        c = __query_data_check(appid)
+        if not c["result"]:
+            return jsonify(r)
+        kid = request.args.get('kid','') 
+        status = request.args.get('status','')
+        errcode = request.args.get('errcode','')
+        loctype = request.args.get('loctype','')
+        locsource = request.args.get('locsource','') 
+        t = __query_last_data(appid,kid,status,errcode,loctype,locsource)
+        data = [] 
+        for i in t:
+            rediskey = __get_redis_Key(i.appid,i.kid)
+            d = redis.get(rediskey)
+            schema = his_data_schema()
+            h = schema.loads(d).data
+            data.append(h)
+        etime = datetime.now()
+        r["data"]=data
+        r["len"]=len(data)
+        r["time"]=(etime-stime).microseconds
+    except Exception,e:
+        print e
+        r["data"]=[]
+        r["len"]=0
+        r["time"]=(datetime.now()-stime).microseconds
+        r["result"]=False
+        r["msg"] = e
+    return jsonify(r)
 
 def h_data(kid):
     """
@@ -392,17 +488,18 @@ def h_data(kid):
 
 def statistics(kids):
     """
-    loc_data statistics.
+    query loc_data statistics.
     """
     stime = datetime.now()
     r = get_result()
     try:
+        datas = []
         #print kids
         #print request.args.items().__str__()
-        ids = kids.split(',')
+        #ids = kids.split(',')
         #print ids 
-        datas = models.Loc_statistics.objects.filter(Q(_id__in=ids)).order_by('-_id')
-        etime = datetime.now()
+        #datas = models.Loc_statistics.objects.filter(Q(_id__in=ids)).order_by('-_id')
+        #etime = datetime.now()
         #print datas
         r["data"]=datas
         r["len"]=len(datas)
@@ -417,5 +514,24 @@ def statistics(kids):
 
     return jsonify(r) 
 
-
+def apps():
+    """
+    query all app
+    """
+    stime = datetime.now()
+    r = __get_result()
+    try:
+        data = db.session.query(app).filter().all()
+        etime = datetime.now()
+        r["data"]=data
+        r["len"]=len(data)
+        r["time"]=(etime-stime).microseconds
+    except Exception,e:
+        print e
+        r["data"]=[]
+        r["len"]=0
+        r["time"]=(datetime.now()-stime).microseconds
+        r["result"]=False
+        r["msg"] = e
+    return jsonify(r)
 
