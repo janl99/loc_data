@@ -195,7 +195,7 @@ def __query_last_data(appid,kid,status,errcode,loctype,locsource):
     query last_data by appid,kid,status,errcode,loctype,locsource
     return last_data array
     """
-    q = last_data.query().filter(appid == appid)
+    q = db.session.query(last_data).filter(appid == appid)
     if not __Is_NoneOrEmpty(kid):
         q.filter(kid == kid)
     if not __Is_NoneOrEmpty(status):
