@@ -83,18 +83,25 @@ def __build_date_list(st,et):
     return r
 
 def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,isquerytoday):
+    #print "query his_data by:appid=%s,kid=%s,status=%s,errcode=%s,loctype=%s,locsource=%s,st=%s,et=%s,isquerytoday=%s" \
+    #        % (appid,kid,status,errcode,loctype,locsource,st,et,isquerytoday)
     if isquerytoday == False:
+        #print "not query include his_data table"
         q = db.session.query(his_data).filter(1 < 0)
     else:
+        #print "query include his_data table."
         q = db.session.query(his_data).filter(his_data.appid==appid,his_data.kid==kid,his_data.time.between(st,et))
         if not __Is_NoneOrEmpty(status):
-            q.filter(his_data.status==status)
+            q = q.filter(his_data.status==status)
         if not __Is_NoneOrEmpty(errcode):
-            q.filter(his_data.errcode==errcode)
+            q = q.filter(his_data.errcode==errcode)
+            print q
         if not __Is_NoneOrEmpty(loctype):
-            q.filter(his_data.loctype==loctype)
-        if not __Is_NoneOrEmpty(locsource==locsource):
-            q.filter(his_data.locsource==locsource)
+            q = q.filter(his_data.loctype==loctype)
+            print q
+        if not __Is_NoneOrEmpty(locsource):
+            q = q.filter(his_data.locsource==locsource)
+            print q
     q.order_by("time")
     return q
 
@@ -102,19 +109,19 @@ def __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,lo
     te = his_data.model(suffix)
     q = db.session.query(te).filter(te.appid==appid,te.kid==kid,te.time.between(st,et))
     if not __Is_NoneOrEmpty(status):
-        q.filter(te.status==status)
+        q = q.filter(te.status==status)
     if not __Is_NoneOrEmpty(errcode):
-        q.filter(te.errcode==errcode)
+        q = q.filter(te.errcode==errcode)
     if not __Is_NoneOrEmpty(loctype):
-        q.filter(te.loctype==loctype)
-    if not __Is_NoneOrEmpty(locsource==locsource):
-        q.filter(te.locsource==locsource)
+        q = q.filter(te.loctype==loctype)
+    if not __Is_NoneOrEmpty(locsource):
+        q = q.filter(te.locsource==locsource)
     return q
 
 def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
     is_query_his_data = False
     dl = __build_date_list(st,et)
-    print dl
+    #print dl
     todaysuffix = datetime.now().strftime('%Y%m%d')
     #print todaysuffix
     if todaysuffix in dl:
@@ -127,7 +134,6 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
         print "suffix:%s" % suffix
         tq = __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix) 
         q = q.union(tq)
-
         print q
     return q
 
@@ -195,18 +201,19 @@ def __query_last_data(appid,kid,status,errcode,loctype,locsource):
     query last_data by appid,kid,status,errcode,loctype,locsource
     return last_data array
     """
-    q = db.session.query(last_data).filter(appid == appid)
+    #print "query last_data by:appid=%s,kid=%s,status=%s,errcode=%s,loctype=%s,locsource=%s" \
+    #        % (appid,kid,status,errcode,loctype,locsource)
+    q = db.session.query(last_data).filter(last_data.appid == appid)
     if not __Is_NoneOrEmpty(kid):
-        q.filter(kid == kid)
+        q = q.filter(last_data.kid == kid)
     if not __Is_NoneOrEmpty(status):
-        q.filter(status == status)
+        q = q.filter(last_data.status == status)
     if not __Is_NoneOrEmpty(errcode):
-        q.filter(errcode == errcode)
+        q = q.filter(last_data.errcode == errcode)
     if not __Is_NoneOrEmpty(loctype):
-        q.filter(loctype == loctype)
+        q = q.filter(last_data.loctype == loctype)
     if not __Is_NoneOrEmpty(locsource):
-        q.filter(locsource = locsource)
-
+        q = q.filter(last_data.locsource == locsource)
     r = q.all()
     return r
 
@@ -216,17 +223,23 @@ def __update_last_data(appid,kid,status,errcode,loctype,locsource):
     when exist update status,errcode,loctype,locsource
     when not exit insert last_data
     """
-    l = db.session.query(last_data).filter(appid==appid,kid==kid).first()
-    if l == None:
-        l = last_data()
-        l.appid = appid
-        l.kid = kid
-    l.status = status
-    l.errcode = errcode
-    l.loctype = loctype
-    l.locsource = locsource
-    db.session.add(l)
-    db.session.commit()
+    #print "updata last_data by:appid=%s,kid=%s,status=%s,errcode=%s,loctype=%s,locsource=%s" \
+    #        % (appid,kid,status,errcode,loctype,locsource)
+    try:
+        l = db.session.query(last_data).filter(last_data.appid==appid,last_data.kid==kid).first()
+        #print "get last_data by appid:kid,:%r" % l
+        if l == None:
+            l = last_data()
+            l.appid = appid
+            l.kid = kid
+        l.status = status
+        l.errcode = errcode
+        l.loctype = loctype
+        l.locsource = locsource
+        db.session.add(l)
+        db.session.commit()
+    except Exception, e:
+        print e
 
 def __h_data_check(kid,appid):
     """
@@ -330,27 +343,27 @@ def loc_data():
     stime = datetime.now()
     r = __get_result() 
     try:
-        print "todo1: get post data"
+        #print "todo1: get post data"
         val = request.get_data()
         schema = his_data_schema()
-        print "todo2: deseariler his_data"
+        #print "todo2: deseariler his_data"
         h =  schema.loads(val).data
-        print "todo3: data check"
+        #print "todo3: data check"
         c = __loc_data_check(h)
         if not  c["result"]:
             return c
-        print "todo4: build redis key"
+        #print "todo4: build redis key"
         rediskey = __get_redis_Key(h.appid,h.kid)
-        print "todo5: save his_data to redis"
+        #print "todo5: save his_data to redis by rediskey:%s" % rediskey
         redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
-        print "todo6: update last data"
+        #print "todo6: update last data"
         __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
-        print "todo7: save hist_data to mysql database."
+        #print "todo7: save hist_data to mysql database."
         h.id = None
         db.session.add(h)
         db.session.commit()
-        print "todo8: update loc data statistics."
+        #print "todo8: update loc data statistics."
         __update_statistics(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
@@ -370,12 +383,12 @@ def l_data(kids):
     stime = datetime.now()
     r = __get_result()
     try:
-        print "todo 1: get query param and check" 
+        #print "todo 1: get query param and check" 
         appid = request.args.get('appid','') 
         c = __last_data_check(kids,appid)
         if not c["result"]:
             return c
-        print "todo 2: loop get data by kids from redis"
+        #print "todo 2: loop get data by kids from redis"
         data = []
         for kid in kids.split(','):
             if __Is_NoneOrEmpty(kid):
@@ -444,29 +457,29 @@ def h_data(kid):
     stime = datetime.now()
     r = __get_result()
     try:
-        print "todo 1: check kid and appid"
+        #print "todo 1: check kid and appid"
         appid = request.args.get('appid','') 
         c = __h_data_check(kid,appid)
         if not c["result"]:
             return jsonify(c) 
-        print "todo 2: get status,errcode whith no check"
+        #print "todo 2: get status,errcode whith no check"
         status = request.args.get('status','')
         errcode = request.args.get('errorcode','')
-        print "todo 3: get stime and etime"
+        #print "todo 3: get stime and etime"
         s = request.args.get('stime','')
         e = request.args.get('etime','')
         ct,st,et = __h_data_check_time(s,e)
         if not ct["result"]:
             return jsonify(ct)
-        print "todo 4: get loctype,locsource"
+        #print "todo 4: get loctype,locsource"
         loctype =  request.args.get('loctype','')
         locsource = request.args.get('locsource','')
-        print "todo 5 get page param"
+        #print "todo 5 get page param"
         page = int(request.args.get('page','1')) 
-        print "todo 6: build query" 
+        #print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
         data_list = []
-        print "todo 7: get data by page"
+        #print "todo 7: get data by page"
         pdatas = q.paginate(page,PER_PAGE,False)
         data_list = pdatas.items
         etime = datetime.now()

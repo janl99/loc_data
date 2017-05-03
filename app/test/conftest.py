@@ -20,7 +20,7 @@ def db(app,request):
 @pytest.yield_fixture(scope='function',autouse=True)
 def session(db,request):
     conn = _db.engine.connect()
-    txn = conn.begin()
+    #txn = conn.begin()
 
     options = dict(bind=conn,binds={})
     session = _db.create_scoped_session(options=options)
@@ -30,5 +30,5 @@ def session(db,request):
     yield session
 
     session.remove()
-    txn.rollback()
+    #txn.rollback()
     conn.close()

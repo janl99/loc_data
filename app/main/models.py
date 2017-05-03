@@ -159,4 +159,3 @@ class his_data_schema(ma.ModelSchema):
 
 
 
-
