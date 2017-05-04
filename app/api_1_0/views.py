@@ -334,6 +334,66 @@ def __h_data_check_time(stime,etime):
     #print "--------------h_data stime and etime check end----------------"
     return r,st,et
 
+def __m_data_get_datelist():
+    """
+    get distinct day str like ['20170502','20170503'] before today
+    """
+    r = []
+    try:
+        st = datetime.combine(datetime.now().date(),time.min)
+        sqlstr = "select distinct(date_format(time,'%Y%m%d')) from his_data where time < '"+ st.strftime('%Y-%m-%d %H:%M:%S') + "';" 
+        t = db.session.execute(sqlstr)
+        for row in t.fetchall():
+            r.append(row[0])
+    except Exception,e:
+        print e
+    return r
+
+def __m_data_suffixtable_exist(suffix):
+    r = False
+    tablename = "his_data" + suffix
+    ret = []
+    sqlstr = " show tables like '"+tablename+"';"
+    try:
+        t = db.session.execute(sqlstr)
+        for row in t.fetchall():
+            ret.append(row[0])
+        if tablename in ret:
+            r = True
+        else:
+            t = False
+    except Exception,e:
+        print e
+    return r
+
+def __m_data_move_data(suffix):
+    #print "__m_data_move_data for:%s" % suffix
+    st = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.min)
+    et = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.max)
+    movesqlstr_tablexist = " insert into his_data" + suffix +" (id,appid,kid,time,status,errcode,loctype,locsource,data) " +\
+            " select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
+            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
+    movesqlstr_tablenotexist = " create table his_data" + suffix +\
+            " (select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
+            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "');"
+    delsqlstr = " delete from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
+            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
+    try:
+        table_exist = __m_data_suffixtable_exist(suffix)
+        #print "table_exist:%r" % table_exist
+        if table_exist:
+            #print "movesqlstr_tablexist:%s" % movesqlstr_tablexist
+            m = db.session.execute(movesqlstr_tablexist)
+        else:
+            #print "movesqlstr_tablenotexist:%s" %movesqlstr_tablenotexist
+            m = db.session.execute(movesqlstr_tablenotexist)
+        #print m.rowcount
+        #print "delsqlstr:%s" % delsqlstr
+        d = db.session.execute(delsqlstr)
+        #print d.rowcount
+    except Exception,e:
+        print e
+
 def loc_data():
     """
     receive post data and save. 
@@ -494,6 +554,26 @@ def h_data(kid):
         r["len"]= 0
         r["page"]= 1
         r["pages"] = 0
+        r["time"]=(datetime.now()-stime).microseconds
+        r["result"]=False
+        r["msg"] = e
+    return jsonify(r)
+
+def m_data():
+    """
+    move data by time from his_data to his_datayyyyMMdd table
+    """
+    stime = datetime.now()
+    r = __get_result()
+    try:
+        #print "todo 1: move data to daytable."
+        dl = __m_data_get_datelist()
+        for suffix in dl:
+            __m_data_move_data(suffix)
+        etime = datetime.now()
+        r["time"]=(etime-stime).microseconds
+    except Exception,e:
+        print e
         r["time"]=(datetime.now()-stime).microseconds
         r["result"]=False
         r["msg"] = e

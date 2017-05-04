@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-from datetime import datetime
+from datetime import datetime,timedelta
 import json
 import pytest
 from loc_data import db 
@@ -164,5 +164,23 @@ class TestApp(object):
         print resp.json
         assert resp.json['len'] == 10 #page size is 10 default is page = 1
 
+    def test_api_v1_m_data(self):
+        t = []
+        c = 0
+        for k in self.params:
+            self.d = datetime.now() + timedelta(days = -1 * c)
+            self.lng =  k['lng']
+            self.lat = k['lat']
+            self.addr = k['addr']
+            self.status = k['status']
+            self.errcode = k['errcode']
+            self.loctype = k['loctype']
+            self.locsource = k['locsource']
+            l = self.test_api_v1_loc_data()
+            t.append(l)
+            c += 1
+        resp = self.client.get('/api/1.0/m_data')
+        assert resp.status_code == 200
+        print resp.json
 
 
