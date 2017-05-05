@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,time
 import json
 import pytest
 from loc_data import db 
@@ -75,7 +75,7 @@ class TestApp(object):
                 'ID':self.counter,'LocationType':self.loctype,\
                 'LocationSource':self.locsource,'LeaveStatus':0}
 
-        pd = {'appid':self.accid,'kid':str(self.kid),'status':str(self.status),\
+        pd = {'id':0,'appid':self.accid,'kid':str(self.kid),'status':str(self.status),\
                 'errcode':self.errcode,'loctype':self.loctype,\
                 'locsource':self.locsource,'time':self.d,'data':json.dumps(val,cls=CJsonEncoder)}
         t = json.dumps(pd,cls=CJsonEncoder)
@@ -143,27 +143,6 @@ class TestApp(object):
         assert resp.status_code == 200
         assert resp.json['len'] ==1
 
-    def test_api_v1_h_data(self):
-        t = []
-        for k in self.params:
-            self.lng =  k['lng']
-            self.lat = k['lat']
-            self.addr = k['addr']
-            self.status = k['status']
-            self.errcode = k['errcode']
-            self.loctype = k['loctype']
-            self.locsource = k['locsource']
-            l = self.test_api_v1_loc_data()
-            t.append(l)
-        # query by kid ,
-        # it's default time between today+min and today+max and page ==1 
-        # page size = 10 
-        # like: 2017-05-03 00:00:00 to 2017-05-03 23:59:59.999999 
-        resp = self.client.get('/api/1.0/h_data/'+str(self.kid) + '?appid=' + self.accid)
-        assert resp.status_code == 200
-        print resp.json
-        assert resp.json['len'] == 10 #page size is 10 default is page = 1
-
     def test_api_v1_m_data(self):
         t = []
         c = 0
@@ -181,6 +160,38 @@ class TestApp(object):
             c += 1
         resp = self.client.get('/api/1.0/m_data')
         assert resp.status_code == 200
-        print resp.json
+        #print resp.json
+        return t
 
+    """
+    def test_api_v1_h_data(self):
+        t = self.test_api_v1_m_data()
+        # query by kid ,
+        # it's default time between today+min and today+max and page ==1 
+        # page size = 10 
+        # format like: 2017-05-03 00:00:00 to 2017-05-03 23:59:59.999999 
+        resp = self.client.get('/api/1.0/h_data/'+str(self.kid) + '?appid=' + self.accid)
+        assert resp.status_code == 200
+        assert resp.json['len'] == 1 
+        #query by kid and time,include today
+        for i in range(1,33):
+            st = datetime.combine(datetime.now().date()+ timedelta(days= -1 * i),time.min)
+            et = datetime.combine(datetime.now().date(),time.max)
+            print st
+            print et
+            print i
+            resp = self.client.get('/api/1.0/h_data/'+str(self.kid) + '?appid=' + self.accid +\
+                    "&stime="+st.strftime('%Y-%m-%d %H:%M:%S') + "&etime="+et.strftime('%Y-%m-%d %H:%M:%S'))
+            assert resp.status_code == 200
+            if i <= 9:
+                print resp.json
+                assert resp.json['len'] == 1 + i
+            elif i <= 31:
+                print resp.json
+                assert resp.json['len'] == 10 #default first page,page size = 10
+            elif i == 32:
+                print resp.json
+                assert resp.json['result'] == False # max query len 31 days 
+        assert 1==0
+    """
 

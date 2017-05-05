@@ -69,22 +69,23 @@ def __build_date_list(st,et):
     tt = st
     st_suffix = datetime.strftime(tt,'%Y%m%d')
     et_suffix = datetime.strftime(et,'%Y%m%d')
+    #print "st_suffix:%s,et_suffix:%s" % (st_suffix,et_suffix) 
     r.append(st_suffix)
     if st_suffix == et_suffix:
         return r
     else:
         while True:
-            tt = tt + datetime.timedelta(days=1)
+            tt = tt + timedelta(days=1)
             tt_suffix = datetime.strftime(tt,'%Y%m%d') 
-            if r.index(tt_suffix) < 0:
+            #print "tt_suffix:%s,et_suffix:%s" % (tt_suffix,et_suffix)
+            #print r
+            if not tt_suffix in r:
                 r.append(tt_suffix)
             if tt_suffix == et_suffix:
                 break
     return r
 
 def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,isquerytoday):
-    #print "query his_data by:appid=%s,kid=%s,status=%s,errcode=%s,loctype=%s,locsource=%s,st=%s,et=%s,isquerytoday=%s" \
-    #        % (appid,kid,status,errcode,loctype,locsource,st,et,isquerytoday)
     if isquerytoday == False:
         #print "not query include his_data table"
         q = db.session.query(his_data).filter(1 < 0)
@@ -95,14 +96,10 @@ def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsourc
             q = q.filter(his_data.status==status)
         if not __Is_NoneOrEmpty(errcode):
             q = q.filter(his_data.errcode==errcode)
-            print q
         if not __Is_NoneOrEmpty(loctype):
             q = q.filter(his_data.loctype==loctype)
-            print q
         if not __Is_NoneOrEmpty(locsource):
             q = q.filter(his_data.locsource==locsource)
-            print q
-    q.order_by("time")
     return q
 
 def __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix):
@@ -119,6 +116,8 @@ def __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,lo
     return q
 
 def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
+    print "build hisdata query by:appid=%s,kid=%s,status=%s,errcode=%s,loctype=%s,locsource=%s,st=%s,et=%s" \
+            % (appid,kid,status,errcode,loctype,locsource,st,et)
     is_query_his_data = False
     dl = __build_date_list(st,et)
     #print dl
@@ -134,7 +133,8 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
         print "suffix:%s" % suffix
         tq = __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix) 
         q = q.union(tq)
-        print q
+        #print q
+    q.order_by("time")
     return q
 
 def __loc_data_check(his_data):
@@ -143,16 +143,17 @@ def __loc_data_check(his_data):
     if all passed  return true else return false
     """
     r = __get_result()
-    #todo1: check appid,kid
+    print "todo1: check appid"
     if __Is_NoneOrEmpty(his_data.appid):
         r["result"] = False
         r["msg"] = "invalid appid."
         return r
+    print "todo2: check kid"
     if __Is_NoneOrEmpty(his_data.kid):
         r["result"] = False
         r["msg"] = "invalid kid."
         return r
-    #todo2: check appid is allowed.
+    print "todo3: check appid is allowed."
     if not __Check_AppidAllowed(his_data.appid):
         r["result"] = False
         r["msg"] = "appid is not allowed."
@@ -167,7 +168,7 @@ def __last_data_check(kids,appid):
     """
     r = __get_result()
     if __Is_NoneOrEmpty(appid):
-        r["result"]=Fals
+        r["result"]=False
         r["msg"] ="invalid appid" 
         return jsonify(r)
     if not __Check_AppidAllowed(appid):
@@ -403,27 +404,28 @@ def loc_data():
     stime = datetime.now()
     r = __get_result() 
     try:
-        #print "todo1: get post data"
+        print "todo1: get post data"
         val = request.get_data()
         schema = his_data_schema()
-        #print "todo2: deseariler his_data"
+        print "todo2: deseariler his_data"
         h =  schema.loads(val).data
-        #print "todo3: data check"
+        print h
+        print "todo3: data check"
         c = __loc_data_check(h)
         if not  c["result"]:
             return c
-        #print "todo4: build redis key"
+        print "todo4: build redis key"
         rediskey = __get_redis_Key(h.appid,h.kid)
-        #print "todo5: save his_data to redis by rediskey:%s" % rediskey
+        print "todo5: save his_data to redis by rediskey:%s" % rediskey
         redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
-        #print "todo6: update last data"
+        print "todo6: update last data"
         __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
-        #print "todo7: save hist_data to mysql database."
+        print "todo7: save hist_data to mysql database."
         h.id = None
         db.session.add(h)
         db.session.commit()
-        #print "todo8: update loc data statistics."
+        print "todo8: update loc data statistics."
         __update_statistics(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
@@ -536,7 +538,7 @@ def h_data(kid):
         locsource = request.args.get('locsource','')
         #print "todo 5 get page param"
         page = int(request.args.get('page','1')) 
-        #print "todo 6: build query" 
+        print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
         data_list = []
         #print "todo 7: get data by page"

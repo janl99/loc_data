@@ -14,7 +14,7 @@ class AlchemyEncoder(json.JSONEncoder):
         if isinstance(o.__class__, DeclarativeMeta):
             data = {}
             fields = o.__json__() if hasattr(o, '__json__') else dir(o)
-            print "obj fields: %s" % fields
+            #print "obj fields: %s" % fields
             for field in [f for f in fields if not f.startswith('_') and f not in ['metadata', 'query', 'query_class']]:
                 #print "model class field: %r" % field
                 value = o.__getattribute__(field)
