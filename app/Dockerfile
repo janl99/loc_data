@@ -7,6 +7,7 @@ MAINTAINER janl <janl99@163.com>
 # ADD sources.list /etc/apt/sources.list
 RUN apt-get update && apt-get install -y curl wget tar bzip2 unzip vim && \
     apt-get install -y nginx git build-essential python-dev python-pip && \
+    apt-get install -y libmysqlclient-dev && \
     apt-get clean all
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 # RUN pip install supervisor uwsgi -i http://pypi.douban.com/simple

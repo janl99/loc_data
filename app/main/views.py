@@ -8,7 +8,7 @@ from flask import current_app, make_response
 from flask.views import MethodView
 #from flask_login import login_required, current_user
 #from werkzeug.contrib.atom import AtomFeed
-from mongoengine.queryset.visitor import Q
+#from mongoengine.queryset.visitor import Q
 #from . import models, signals, forms
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
