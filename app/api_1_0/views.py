@@ -159,7 +159,6 @@ def __loc_data_check(his_data):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
-
     return r
 
 def __last_data_check(kids,appid):
@@ -602,6 +601,38 @@ def m_data():
         r["time"]=(datetime.now()-stime).microseconds
         r["result"]=False
         r["msg"] = e
+    return jsonify(r)
+
+def i_data():
+    """
+    import data
+    """
+    stime = datetime.now()
+    r = __get_result() 
+    try:
+        #print "todo1: get post data"
+        val = request.get_data()
+        schema = his_data_schema()
+        #print "todo2: deseariler his_data"
+        h =  schema.loads(val).data
+        if not isinstance(h,his_data):
+            r['result'] = False
+            r['msg'] = 'invalid his_data,please check post data.'
+            return r
+        #print "todo3: data check"
+        c = __loc_data_check(h)
+        if not  c["result"]:
+            return c
+        h.id = None
+        db.session.add(h)
+        db.session.commit()
+        etime = datetime.now()
+        r["time"]=(etime-stime).microseconds
+    except Exception, e:
+        print e
+        r["time"]=(datetime.now()-stime).microseconds
+        r["result"]=False
+        r["msg"]=e
     return jsonify(r)
 
 def statistics(kids):
