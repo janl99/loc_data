@@ -15,18 +15,19 @@ from flask.views import MethodView
 from loc_data.config import System_Settings
 from main.models import app,his_data,his_data_schema,last_data 
 from loc_data import db,redis,ma
-from sqlalchemy import text
+from sqlalchemy import text,not_
+from sqlalchemy.sql.expression import func
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
 #page size
-PER_PAGE = System_Settings['pagination'].get('per_page', 10)
+PER_PAGE = System_Settings['pagination'].get('per_page', 100)
 #onec query, starttime and endtime must be less then max_days_once
-MAX_DAYS_ONCE = System_Settings['query_setting'].get('max_days_once',31)
+MAX_DAYS_ONCE = System_Settings['query_setting'].get('max_days_once',1)
 #query starttime must  between  18 month nearst  30 * 18 month = 540 days
-MAX_DAYS_BEFORE_TODAY = System_Settings['query_setting'].get('max_days_before_today',540)
+MAX_DAYS_BEFORE_TODAY = System_Settings['query_setting'].get('max_days_before_today',3650)
 #redis last_data key profix
 LAST_LOCATION_REDIS_KEY_PREFIX = "LL"
 
@@ -143,17 +144,17 @@ def __loc_data_check(his_data):
     if all passed  return true else return false
     """
     r = __get_result()
-    print "todo1: check appid"
+    #print "todo1: check appid"
     if __Is_NoneOrEmpty(his_data.appid):
         r["result"] = False
         r["msg"] = "invalid appid."
         return r
-    print "todo2: check kid"
+    #print "todo2: check kid"
     if __Is_NoneOrEmpty(his_data.kid):
         r["result"] = False
         r["msg"] = "invalid kid."
         return r
-    print "todo3: check appid is allowed."
+    #print "todo3: check appid is allowed."
     if not __Check_AppidAllowed(his_data.appid):
         r["result"] = False
         r["msg"] = "appid is not allowed."
@@ -210,7 +211,23 @@ def __query_last_data(appid,kid,status,errcode,loctype,locsource):
     if not __Is_NoneOrEmpty(status):
         q = q.filter(last_data.status == status)
     if not __Is_NoneOrEmpty(errcode):
-        q = q.filter(last_data.errcode == errcode)
+        noterrcode = False
+        errs = errcode.split(',')
+        if 'not' in errs:
+            noterrcode = True
+            errs.remove('not')
+        if len(errs) == 1:
+            code = errs[0]
+            if noterrcode:
+                q = q.filter(last_data.errcode !=  code)
+            else:
+                q = q.filter(last_data.errcode == code)
+        elif len(errs) > 1:
+            code = ','.join(errs) 
+            if noterrcode:
+                q = q.filter(not_(func.find_in_set(last_data.errcode,code)))
+            else:
+                q = q.filter(func.find_in_set(last_data.errcode,code))
     if not __Is_NoneOrEmpty(loctype):
         q = q.filter(last_data.loctype == loctype)
     if not __Is_NoneOrEmpty(locsource):
@@ -323,14 +340,14 @@ def __h_data_check_time(stime,etime):
     if (et - st).days > MAX_DAYS_ONCE:
         #print "(et - st).days > 31: %d" % (et - st).days
         r["result"] = False
-        r["msg"] = "invalid time param. must (etime - stime).days <= 31"
+        r["msg"] = "invalid time param. must (etime - stime).days <= " +  str(MAX_DAYS_ONCE)
         return r,st,et
     #print type(datetime.now())
     #print type(st)
     if (datetime.now() - st).days > MAX_DAYS_BEFORE_TODAY :
         print "(datetime.now() - st).months > 18:%d" %  (datetime.now() - st).days
         r["result"] = False
-        r["msg"] = "invalid time param. only can get 18 months data nearst"
+        r["msg"] = "invalid time param. only can get data in " + str(MAX_DAYS_BEFORE_TODAY) + " days."
         return r,st,et
     #print "--------------h_data stime and etime check end----------------"
     return r,st,et
@@ -368,27 +385,28 @@ def __m_data_suffixtable_exist(suffix):
     return r
 
 def __m_data_move_data(suffix):
-    #print "__m_data_move_data for:%s" % suffix
+    print "__m_data_move_data for:%s" % suffix
     st = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.min)
     et = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.max)
+    create_suffixtable_sqlstr = "create table his_data" + suffix +\
+            " (select * from his_data where 1 = 0 )" 
     movesqlstr_tablexist = " insert into his_data" + suffix +" (id,appid,kid,time,status,errcode,loctype,locsource,data) " +\
             " select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
             "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
-    movesqlstr_tablenotexist = " create table his_data" + suffix +\
-            " (select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
-            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "');"
+    #movesqlstr_tablenotexist = " create table his_data" + suffix +\
+    #        " (select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
+    #        "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "');"
     delsqlstr = " delete from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
             "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
     try:
         table_exist = __m_data_suffixtable_exist(suffix)
         #print "table_exist:%r" % table_exist
-        if table_exist:
-            #print "movesqlstr_tablexist:%s" % movesqlstr_tablexist
-            m = db.session.execute(movesqlstr_tablexist)
-        else:
-            #print "movesqlstr_tablenotexist:%s" %movesqlstr_tablenotexist
-            m = db.session.execute(movesqlstr_tablenotexist)
-        #print m.rowcount
+        if not table_exist:
+            #print "create_suffixtable_sqlstr:%s" % create_suffixtable_sqlstr
+            m = db.session.execute(create_suffixtable_sqlstr)
+        #print "movesqlstr_tablexist:%s" % movesqlstr_tablexist
+        m = db.session.execute(movesqlstr_tablexist)
+        print m.rowcount
         #print "delsqlstr:%s" % delsqlstr
         d = db.session.execute(delsqlstr)
         #print d.rowcount
@@ -404,28 +422,31 @@ def loc_data():
     stime = datetime.now()
     r = __get_result() 
     try:
-        print "todo1: get post data"
+        #print "todo1: get post data"
         val = request.get_data()
         schema = his_data_schema()
-        print "todo2: deseariler his_data"
+        #print "todo2: deseariler his_data"
         h =  schema.loads(val).data
-        print h
-        print "todo3: data check"
+        if not isinstance(h,his_data):
+            r['result'] = False
+            r['msg'] = 'invalid his_data,please check post data.'
+            return r
+        #print "todo3: data check"
         c = __loc_data_check(h)
         if not  c["result"]:
             return c
-        print "todo4: build redis key"
+        #print "todo4: build redis key"
         rediskey = __get_redis_Key(h.appid,h.kid)
-        print "todo5: save his_data to redis by rediskey:%s" % rediskey
+        #print "todo5: save his_data to redis by rediskey:%s" % rediskey
         redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
-        print "todo6: update last data"
+        #print "todo6: update last data"
         __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
-        print "todo7: save hist_data to mysql database."
+        #print "todo7: save hist_data to mysql database."
         h.id = None
         db.session.add(h)
         db.session.commit()
-        print "todo8: update loc data statistics."
+        #print "todo8: update loc data statistics."
         __update_statistics(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
@@ -457,6 +478,8 @@ def l_data(kids):
                 continue
             rediskey = __get_redis_Key(appid,kid)
             d = redis.get(rediskey)
+            if not d:
+                continue
             schema = his_data_schema()
             h = schema.loads(d).data
             data.append(h)

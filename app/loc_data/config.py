@@ -6,13 +6,13 @@ import os, sys
 
 System_Settings = {
     'pagination':{
-        'per_page': int(os.environ.get('per_page', 10)),
-        'admin_per_page': int(os.environ.get('admin_per_page', 10)),
-        'archive_per_page': int(os.environ.get('admin_per_page', 20)),
+        'per_page': int(os.environ.get('per_page', 100)),
+        'admin_per_page': int(os.environ.get('admin_per_page', 100)),
+        'archive_per_page': int(os.environ.get('admin_per_page', 100)),
     },
     'query_setting':{
-        'max_days_once': int(os.environ.get('max_days',31)),
-        'max_days_before_today': int(os.environ.get('max_days_before_today',540))
+        'max_days_once': int(os.environ.get('max_days',1)),
+        'max_days_before_today': int(os.environ.get('max_days_before_today',3650))
         },
     'copyright': {
         'display_copyright': os.environ.get('allow_donate', 'true').lower() == 'true',

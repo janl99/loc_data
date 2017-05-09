@@ -18,7 +18,8 @@ class TestApp(object):
     lng = 115.152263
     lat = 38.854287
     addr = '顺平县永平路'
-    d = datetime.now()
+    d = datetime.strptime('2009-02-01','%Y-%m-%d')
+    start_time = datetime.strptime('2009-02-01','%Y-%m-%d') 
     status = 1
     errcode = 'ok'
     loctype = 'Auto'
@@ -78,6 +79,7 @@ class TestApp(object):
         pd = {'id':0,'appid':self.accid,'kid':str(self.kid),'status':str(self.status),\
                 'errcode':self.errcode,'loctype':self.loctype,\
                 'locsource':self.locsource,'time':self.d,'data':json.dumps(val,cls=CJsonEncoder)}
+
         t = json.dumps(pd,cls=CJsonEncoder)
         #print t
         resp = self.client.post('/api/1.0/loc_data',\
@@ -130,6 +132,18 @@ class TestApp(object):
         resp = self.client.get('/api/1.0/q_data/'+self.accid + '?status=0&errcode=130')
         assert resp.status_code == 200
         assert resp.json['len'] ==4 
+        # queriy by status == 0 and errcode = 130 or errcode = 147
+        resp = self.client.get('/api/1.0/q_data/'+self.accid + '?status=0&errcode=130,147')
+        assert resp.status_code == 200
+        assert resp.json['len'] == 8
+        # query by status == 0 and errcode != 130
+        resp = self.client.get('/api/1.0/q_data/'+self.accid + '?status=0&errcode=not,130')
+        assert resp.status_code == 200
+        assert resp.json['len'] ==4 
+        # queriy by status == 0 and errcode != 130 and  errcode != 147
+        resp = self.client.get('/api/1.0/q_data/'+self.accid + '?status=0&errcode=not,130,147')
+        assert resp.status_code == 200
+        assert resp.json['len'] == 0 
         # query by status == 1 and errcode = 147 ,will no result, all status == 1 then errcode will be ok  
         resp = self.client.get('/api/1.0/q_data/'+self.accid + '?status=1&errcode=147')
         assert resp.status_code == 200
@@ -143,11 +157,12 @@ class TestApp(object):
         assert resp.status_code == 200
         assert resp.json['len'] ==1
 
-    def test_api_v1_m_data(self):
+    def api_v1_m_data(self):
         t = []
         c = 0
         for k in self.params:
-            self.d = datetime.now() + timedelta(days = -1 * c)
+            self.d = self.start_time + timedelta(days = -1 * c)
+            print self.d
             self.lng =  k['lng']
             self.lat = k['lat']
             self.addr = k['addr']
@@ -163,35 +178,31 @@ class TestApp(object):
         #print resp.json
         return t
 
-    """
     def test_api_v1_h_data(self):
-        t = self.test_api_v1_m_data()
+        t = self.api_v1_m_data()
         # query by kid ,
         # it's default time between today+min and today+max and page ==1 
         # page size = 10 
-        # format like: 2017-05-03 00:00:00 to 2017-05-03 23:59:59.999999 
+        # default query today: 2017-05-03 00:00:00 to 2017-05-03 23:59:59.999999 ,but add date at time self.d
         resp = self.client.get('/api/1.0/h_data/'+str(self.kid) + '?appid=' + self.accid)
         assert resp.status_code == 200
-        assert resp.json['len'] == 1 
+        assert resp.json['len'] == 0 # 
         #query by kid and time,include today
-        for i in range(1,33):
-            st = datetime.combine(datetime.now().date()+ timedelta(days= -1 * i),time.min)
-            et = datetime.combine(datetime.now().date(),time.max)
-            print st
-            print et
-            print i
+        suffixs =[]
+        suffixs.append(self.start_time.strftime('%Y%m%d'))
+        for i in range(1,12): # 1--11
+            tt = self.start_time + timedelta(days= -1 * i)
+            st = datetime.combine(tt.date(),time.min)
+            et = datetime.combine(tt.date(),time.max)
+            suffixs.append(st.strftime('%Y%m%d')) 
             resp = self.client.get('/api/1.0/h_data/'+str(self.kid) + '?appid=' + self.accid +\
                     "&stime="+st.strftime('%Y-%m-%d %H:%M:%S') + "&etime="+et.strftime('%Y-%m-%d %H:%M:%S'))
             assert resp.status_code == 200
-            if i <= 9:
+            if i <= 11:
                 print resp.json
-                assert resp.json['len'] == 1 + i
-            elif i <= 31:
-                print resp.json
-                assert resp.json['len'] == 10 #default first page,page size = 10
-            elif i == 32:
-                print resp.json
-                assert resp.json['result'] == False # max query len 31 days 
-        assert 1==0
-    """
+                assert resp.json['len'] == 1 
+        # todo clear test data day table
+        for s in suffixs:
+            db.session.execute(' drop table his_data' + s)
+
 
