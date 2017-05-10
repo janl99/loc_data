@@ -8,7 +8,7 @@ from flask import json
 class AlchemyEncoder(json.JSONEncoder):
 
     def default(self, o):
-        #print "obj type is: %s" % type(o)
+        print "obj type is: %s" % type(o)
         if isinstance(o,datetime) or isinstance(o,date):
             return o.isoformat()
         if isinstance(o.__class__, DeclarativeMeta):

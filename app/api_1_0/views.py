@@ -13,7 +13,8 @@ from flask.views import MethodView
 #from accounts.models import User
 #from accounts.permissions import admin_permission, editor_permission, writer_permission, reader_permission
 from loc_data.config import System_Settings
-from main.models import app,his_data,his_data_schema,last_data 
+from main.models import app,his_data,his_data_schema,last_data
+from main.DataCacheSaver import DataCacheSaver as _saver
 from loc_data import db,redis,ma
 from sqlalchemy import text,not_
 from sqlalchemy.sql.expression import func
@@ -30,6 +31,11 @@ MAX_DAYS_ONCE = System_Settings['query_setting'].get('max_days_once',1)
 MAX_DAYS_BEFORE_TODAY = System_Settings['query_setting'].get('max_days_before_today',3650)
 #redis last_data key profix
 LAST_LOCATION_REDIS_KEY_PREFIX = "LL"
+
+def __get_datasaver():
+    '''获取缓存保存器实例'''
+    r = _saver()
+    return r
 
 def __get_result():
     """
@@ -612,20 +618,27 @@ def i_data():
     try:
         #print "todo1: get post data"
         val = request.get_data()
-        schema = his_data_schema()
+        #schema = his_data_schema()
         #print "todo2: deseariler his_data"
-        h =  schema.loads(val).data
-        if not isinstance(h,his_data):
+        #h =  schema.loads(val).data
+        h = json.loads(val)
+        #print h
+        #print type(h)
+        if not isinstance(h,dict):
             r['result'] = False
-            r['msg'] = 'invalid his_data,please check post data.'
+            r['msg'] = 'invalid import data,please check post data.'
             return r
         #print "todo3: data check"
-        c = __loc_data_check(h)
-        if not  c["result"]:
-            return c
-        h.id = None
-        db.session.add(h)
-        db.session.commit()
+        #c = __loc_data_check(h)
+        #if not  c["result"]:
+        #    return c
+        #h.id = 0 
+        saver = __get_datasaver()
+        #print type(h)
+        #d = json.dump(h) 
+        #print type(d)
+        #print d
+        saver.save(h)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception, e:
