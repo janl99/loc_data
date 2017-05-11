@@ -29,8 +29,8 @@ class Config(object):
     TEMPLATE_PATH = os.path.join(BASE_DIR, 'templates').replace('\\', '/')
     STATIC_PATH = os.path.join(BASE_DIR, 'static').replace('\\', '/')
 
-    REDIS_URL = "redis://:@192.168.2.221:6379/0"
-    SQLALCHEMY_DATABASE_URI = 'mysql://root:loc_data#123456@192.168.2.221:3306/loc_data'
+    REDIS_URL = "redis://:@redis:6379/0"
+    SQLALCHEMY_DATABASE_URI = 'mysql://root:loc_data#123456@mysql:3306/loc_data'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
