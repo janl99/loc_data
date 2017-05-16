@@ -618,27 +618,14 @@ def i_data():
     try:
         #print "todo1: get post data"
         val = request.get_data()
-        #schema = his_data_schema()
-        #print "todo2: deseariler his_data"
-        #h =  schema.loads(val).data
-        h = json.loads(val)
-        #print h
-        #print type(h)
-        if not isinstance(h,dict):
+        ha = json.loads(val)
+        if not isinstance(ha,list):
             r['result'] = False
             r['msg'] = 'invalid import data,please check post data.'
             return r
-        #print "todo3: data check"
-        #c = __loc_data_check(h)
-        #if not  c["result"]:
-        #    return c
-        #h.id = 0 
         saver = __get_datasaver()
-        #print type(h)
-        #d = json.dump(h) 
-        #print type(d)
-        #print d
-        saver.save(h)
+        for h in ha:
+            saver.save(h)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception, e:

@@ -55,7 +55,7 @@ class DataCacheSaver(Singleton):
                         r = db.session.execute(his_data.__table__.insert(),da)
                         print "bluck insert rows:%d" % r.rowcount
                         db.session.commit()
-                        print "savethreading is end."
+                        print "bluck save is end."
                 else:
                     time.sleep(5)
             except Exception,e:
