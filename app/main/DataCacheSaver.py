@@ -4,18 +4,11 @@
 import threading
 import datetime
 import Queue
+from BaseSingletonClass import Singleton
 from loc_data import db
 from flask import current_app
 from .models import his_data
 import time
-
-class Singleton(object):
-    '''单例类基类'''
-    def __new__(cls,*args,**kw):
-        if not hasattr(cls,'_instance'):
-            old = super(Singleton,cls)
-            cls._instance=old.__new__(cls,*args,**kw)
-        return cls._instance
 
 class DataCacheSaver(Singleton):
     """
@@ -23,7 +16,7 @@ class DataCacheSaver(Singleton):
     """ 
     __isinited = False
     __q = None
-    __batch_size = 1000
+    __batch_size = 500
     __savethreading = None
     __app = None
     mutex = None
@@ -32,7 +25,7 @@ class DataCacheSaver(Singleton):
         if not self.__isinited :
             print "datacachesaver is init..."
             self.__q = Queue.Queue()
-            self.__batch_size = 10000
+            self.__batch_size = 500
             self.mutex = threading.Lock()
             self.__app = current_app._get_current_object() 
             self.__isinited = True

@@ -15,6 +15,7 @@ from flask.views import MethodView
 from loc_data.config import System_Settings
 from main.models import app,his_data,his_data_schema,last_data
 from main.DataCacheSaver import DataCacheSaver as _saver
+from main.DataLoopMover import DataLoopMover as _mover
 from loc_data import db,redis,ma
 from sqlalchemy import text,not_
 from sqlalchemy.sql.expression import func
@@ -35,6 +36,13 @@ LAST_LOCATION_REDIS_KEY_PREFIX = "LL"
 def __get_datasaver():
     '''获取缓存保存器实例'''
     r = _saver()
+    return r
+
+def __get_datamover():
+    '''
+    获取数据转移器
+    '''
+    r = _mover()
     return r
 
 def __get_result():
@@ -357,67 +365,6 @@ def __h_data_check_time(stime,etime):
     #print "--------------h_data stime and etime check end----------------"
     return r,st,et
 
-def __m_data_get_datelist():
-    """
-    get distinct day str like ['20170502','20170503'] before today
-    """
-    r = []
-    try:
-        st = datetime.combine(datetime.now().date(),time.min)
-        sqlstr = "select distinct(date_format(time,'%Y%m%d')) from his_data where time < '"+ st.strftime('%Y-%m-%d %H:%M:%S') + "';" 
-        t = db.session.execute(sqlstr)
-        for row in t.fetchall():
-            r.append(row[0])
-    except Exception,e:
-        print e
-    return r
-
-def __m_data_suffixtable_exist(suffix):
-    r = False
-    tablename = "his_data" + suffix
-    ret = []
-    sqlstr = " show tables like '"+tablename+"';"
-    try:
-        t = db.session.execute(sqlstr)
-        for row in t.fetchall():
-            ret.append(row[0])
-        if tablename in ret:
-            r = True
-        else:
-            t = False
-    except Exception,e:
-        print e
-    return r
-
-def __m_data_move_data(suffix):
-    print "__m_data_move_data for:%s" % suffix
-    st = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.min)
-    et = datetime.combine(datetime.strptime(suffix,'%Y%m%d').date(), time.max)
-    create_suffixtable_sqlstr = "create table his_data" + suffix +\
-            " (select * from his_data where 1 = 0 )" 
-    movesqlstr_tablexist = " insert into his_data" + suffix +" (id,appid,kid,time,status,errcode,loctype,locsource,data) " +\
-            " select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
-            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
-    #movesqlstr_tablenotexist = " create table his_data" + suffix +\
-    #        " (select * from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
-    #        "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "');"
-    delsqlstr = " delete from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
-            "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "';"
-    try:
-        table_exist = __m_data_suffixtable_exist(suffix)
-        #print "table_exist:%r" % table_exist
-        if not table_exist:
-            #print "create_suffixtable_sqlstr:%s" % create_suffixtable_sqlstr
-            m = db.session.execute(create_suffixtable_sqlstr)
-        #print "movesqlstr_tablexist:%s" % movesqlstr_tablexist
-        m = db.session.execute(movesqlstr_tablexist)
-        print m.rowcount
-        #print "delsqlstr:%s" % delsqlstr
-        d = db.session.execute(delsqlstr)
-        #print d.rowcount
-    except Exception,e:
-        print e
-
 def loc_data():
     """
     receive post data and save. 
@@ -596,10 +543,8 @@ def m_data():
     stime = datetime.now()
     r = __get_result()
     try:
-        #print "todo 1: move data to daytable."
-        dl = __m_data_get_datelist()
-        for suffix in dl:
-            __m_data_move_data(suffix)
+        mover = __get_datamover()
+        mover.move()
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception,e:
