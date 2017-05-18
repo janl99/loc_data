@@ -31,18 +31,21 @@ class DataLoopMover(Singleton):
             self.__isinited = True
 
     def run(self):
-        #while(True):
-        print "start to move his_data %s" % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        try:
-            while not self.__q.empty():
-                self.mutex.acquire()
-                suffix = self.__q.get()
-                self.mutex.release()
-                print "process data:%s" % suffix
-                self.__m_data_move_data(suffix) 
-            print "thread move complated."
-        except Exception,e:
-            print e
+        while(True):
+            print "start to move his_data %s,suffix queue: %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),str(self.__q.qsize()))
+            try:
+                if self.__q.qsize() > 0:
+                    while self.__q.qsize() > 0:
+                        #self.mutex.acquire()
+                        suffix = self.__q.get()
+                        #self.mutex.release()
+                        print "move data:%s" % suffix
+                        self.__m_data_move_data(suffix) 
+                else:
+                    time.sleep(5)
+                #print "thread move complated."
+            except Exception,e:
+                print e
 
     def __start_move(self):
         #print "__start save...."
@@ -70,6 +73,7 @@ class DataLoopMover(Singleton):
             print dl
             for suffix in dl:
                 self.__q.put(suffix)
+
             self.__start_move()
         except Exception,e:
             print e

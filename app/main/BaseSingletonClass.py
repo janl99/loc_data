@@ -11,10 +11,14 @@ import time
 
 class Singleton(object):
     '''单例类基类'''
+    _instance = None
+    lock = threading.RLock()
+
     def __new__(cls,*args,**kw):
-        if not hasattr(cls,'_instance'):
-            old = super(Singleton,cls)
-            cls._instance=old.__new__(cls,*args,**kw)
+        cls.lock.acquire()
+        if cls._instance is None:
+            cls._instance = super(Singleton,cls).__new__(cls)
+        cls.lock.release()
         return cls._instance
 
 
