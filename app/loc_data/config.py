@@ -42,6 +42,8 @@ class Config(object):
 
 class DevConfig(Config):
     DEBUG = True
+    REDIS_URL = "redis://:@192.168.2.221:6379/0"
+    SQLALCHEMY_DATABASE_URI = 'mysql://root:loc_data#123456@192.168.2.221:3306/loc_data'
 
 class PrdConfig(Config):
     # DEBUG = False

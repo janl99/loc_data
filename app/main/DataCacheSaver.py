@@ -44,6 +44,7 @@ class DataCacheSaver(Singleton):
                         #print h
                         da.append(h)
                     self.mutex.release()
+                    print "queue len:%s"  % str(self.__q.qsize())
                     with self.__app.app_context():
                         r = db.session.execute(his_data.__table__.insert(),da)
                         print "bluck insert rows:%d" % r.rowcount
@@ -77,7 +78,7 @@ class DataCacheSaver(Singleton):
     def save(self,his_data):
         try:
             self.__q.put(his_data)
-            print "queue len:%s"  % str(self.__q.qsize())
+
             self.__start_save()
         except Exception,e:
             print e

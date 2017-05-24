@@ -248,7 +248,7 @@ def __query_last_data(appid,kid,status,errcode,loctype,locsource):
     r = q.all()
     return r
 
-def __update_last_data(appid,kid,status,errcode,loctype,locsource):
+def __update_last_data(appid,kid,status,errcode,loctype,locsource,time):
     """
     get last_data by appid,kid
     when exist update status,errcode,loctype,locsource
@@ -267,6 +267,7 @@ def __update_last_data(appid,kid,status,errcode,loctype,locsource):
         l.errcode = errcode
         l.loctype = loctype
         l.locsource = locsource
+        l.time = time
         db.session.add(l)
         db.session.commit()
     except Exception, e:
@@ -393,7 +394,7 @@ def loc_data():
         redis_data = schema.dumps(h).data
         redis.set(rediskey,redis_data)
         #print "todo6: update last data"
-        __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
+        __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource,h.time)
         #print "todo7: save hist_data to mysql database."
         h.id = None
         db.session.add(h)
