@@ -93,7 +93,7 @@ class DataLoopMover(Singleton):
         """
         r = []
         try:
-            sqlstr = "select min(date_format(time,'%Y%m%d')) from his_data;" 
+            sqlstr = "select date_format(min(time),'%Y%m%d') from his_data;" 
             with self.__app.app_context():
                 t = db.session.execute(sqlstr).scalar()
                 r = t
