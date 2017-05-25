@@ -100,6 +100,7 @@ def __build_date_list(st,et):
                 break
     return r
 
+
 def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,isquerytoday):
     if isquerytoday == False:
         #print "not query include his_data table"
@@ -140,7 +141,7 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
     #print todaysuffix
     if todaysuffix in dl:
         print "query include today table."
-        dl.remove(todaysuffix)
+        #dl.remove(todaysuffix)
         is_query_his_data = True
     q = __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,is_query_his_data)
     #print q
