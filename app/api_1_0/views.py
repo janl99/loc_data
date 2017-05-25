@@ -150,7 +150,7 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
         tq = __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix) 
         q = q.union(tq)
         #print q
-    q.order_by("time")
+    q = q.order_by("time")
     return q
 
 def __loc_data_check(his_data):
@@ -517,6 +517,7 @@ def h_data(kid):
         page = int(request.args.get('page','1')) 
         print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
+        print q
         data_list = []
         #print "todo 7: get data by page"
         pdatas = q.paginate(page,PER_PAGE,False)
