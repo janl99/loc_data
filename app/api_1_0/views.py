@@ -517,7 +517,6 @@ def h_data(kid):
         page = int(request.args.get('page','1')) 
         print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
-        print q
         data_list = []
         #print "todo 7: get data by page"
         pdatas = q.paginate(page,PER_PAGE,False)
