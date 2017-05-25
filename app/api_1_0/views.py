@@ -150,7 +150,7 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
         tq = __build_his_data_suffixtable_query(appid,kid,st,et,status,errcode,loctype,locsource,suffix) 
         q = q.union(tq)
         #print q
-    q = q.order_by("time")
+    q = q.order_by(his_data.time)
     return q
 
 def __loc_data_check(his_data):
