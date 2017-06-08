@@ -16,6 +16,9 @@ from loc_data.config import System_Settings
 from main.models import app,his_data,his_data_schema,last_data
 from main.DataCacheSaver import DataCacheSaver as _saver
 from main.DataLoopMover import DataLoopMover as _mover
+from main.LocDataSaver import LocDataSaver as _locsaver
+from main.Authenticate import Authenticate as _auth
+from main.Statistics import Statistics  as _statis
 from loc_data import db,redis,ma
 from sqlalchemy import text,not_
 from sqlalchemy.sql.expression import func
@@ -33,8 +36,15 @@ MAX_DAYS_BEFORE_TODAY = System_Settings['query_setting'].get('max_days_before_to
 #redis last_data key profix
 LAST_LOCATION_REDIS_KEY_PREFIX = "LL"
 
-def __get_datasaver():
-    '''获取缓存保存器实例'''
+def __get_locdatasaver():
+    '''
+    get loc data saver
+    '''
+    r = _locsaver()
+    return r
+
+def __get_dataimportsaver():
+    '''获取import缓存保存器实例'''
     r = _saver()
     return r
 
@@ -43,6 +53,16 @@ def __get_datamover():
     获取数据转移器
     '''
     r = _mover()
+    return r
+
+def __get_requestauthenticate():
+    '''get Authenticate'''
+    r = _auth()
+    return r
+
+def __get_statistics():
+    '''get statistics'''
+    r = _statis() 
     return r
 
 def __get_result():
@@ -61,11 +81,12 @@ def __Is_NoneOrEmpty(val):
         return True 
     return False 
 
-def __Check_AppidAllowed(appid):
+def __Check_AppidAllowed(appid,ip):
     """
     check appid is allowed.
     """
-    return True 
+    r = __get_requestauthenticate().check(appid,ip) 
+    return r 
 
 def __get_redis_Key(appid,kid):
     """
@@ -99,7 +120,6 @@ def __build_date_list(st,et):
             if tt_suffix == et_suffix:
                 break
     return r
-
 
 def __build_his_data_table_query(appid,kid,st,et,status,errcode,loctype,locsource,isquerytoday):
     if isquerytoday == False:
@@ -153,7 +173,7 @@ def __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource):
     q = q.order_by(his_data.time)
     return q
 
-def __loc_data_check(his_data):
+def __loc_data_check(his_data,ip):
     """
     loc_data.postdata check 
     if all passed  return true else return false
@@ -170,13 +190,13 @@ def __loc_data_check(his_data):
         r["msg"] = "invalid kid."
         return r
     #print "todo3: check appid is allowed."
-    if not __Check_AppidAllowed(his_data.appid):
+    if not __Check_AppidAllowed(his_data.appid,ip):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
     return r
 
-def __last_data_check(kids,appid):
+def __last_data_check(kids,appid,ip):
     """
     last_data param check
     if no kid in kids or appid invalid return false else true
@@ -186,7 +206,7 @@ def __last_data_check(kids,appid):
         r["result"]=False
         r["msg"] ="invalid appid" 
         return jsonify(r)
-    if not __Check_AppidAllowed(appid):
+    if not __Check_AppidAllowed(appid,ip):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
@@ -197,7 +217,7 @@ def __last_data_check(kids,appid):
         return r
     return r
 
-def __query_data_check(appid):
+def __query_data_check(appid,ip):
     """
     check appid for q_data 
     """
@@ -206,7 +226,7 @@ def __query_data_check(appid):
         r["result"]=Fals
         r["msg"] ="invalid appid" 
         return jsonify(r)
-    if not __Check_AppidAllowed(appid):
+    if not __Check_AppidAllowed(appid,ip):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
@@ -274,7 +294,7 @@ def __update_last_data(appid,kid,status,errcode,loctype,locsource,time):
     except Exception, e:
         print e
 
-def __h_data_check(kid,appid):
+def __h_data_check(kid,appid,ip):
     """
     h_data query param check 
     if all passed return true else false
@@ -290,7 +310,7 @@ def __h_data_check(kid,appid):
         r["msg"] = "invalid appid."
         return r
     #todo2: check appid is allowed.
-    if not __Check_AppidAllowed(his_data.appid):
+    if not __Check_AppidAllowed(his_data.appid,ip):
         r["result"] = False
         r["msg"] = "appid is not allowed."
         return r
@@ -376,6 +396,7 @@ def loc_data():
     stime = datetime.now()
     r = __get_result() 
     try:
+        ip = request.remote_addr
         #print "todo1: get post data"
         val = request.get_data()
         schema = his_data_schema()
@@ -384,24 +405,16 @@ def loc_data():
         if not isinstance(h,his_data):
             r['result'] = False
             r['msg'] = 'invalid his_data,please check post data.'
-            return r
+            print r['msg']
+            return jsonify(r)
         #print "todo3: data check"
-        c = __loc_data_check(h)
+        c = __loc_data_check(h,ip)
         if not  c["result"]:
-            return c
-        #print "todo4: build redis key"
-        rediskey = __get_redis_Key(h.appid,h.kid)
-        #print "todo5: save his_data to redis by rediskey:%s" % rediskey
-        redis_data = schema.dumps(h).data
-        redis.set(rediskey,redis_data)
-        #print "todo6: update last data"
-        __update_last_data(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource,h.time)
-        #print "todo7: save hist_data to mysql database."
-        h.id = None
-        db.session.add(h)
-        db.session.commit()
-        #print "todo8: update loc data statistics."
-        __update_statistics(h.appid,h.kid,h.status,h.errcode,h.loctype,h.locsource)
+            print c['msg']
+            return jsonify(c)
+        __saver = __get_locdatasaver()
+        hd = json.loads(val)
+        __saver.save(hd)
         etime = datetime.now()
         r["time"]=(etime-stime).microseconds
     except Exception, e:
@@ -421,8 +434,9 @@ def l_data(kids):
     r = __get_result()
     try:
         #print "todo 1: get query param and check" 
+        ip = request.remote_addr
         appid = request.args.get('appid','') 
-        c = __last_data_check(kids,appid)
+        c = __last_data_check(kids,appid,ip)
         if not c["result"]:
             return c
         #print "todo 2: loop get data by kids from redis"
@@ -457,7 +471,8 @@ def q_data(appid):
     stime = datetime.now()
     r = __get_result()
     try:
-        c = __query_data_check(appid)
+        ip = request.remote_addr
+        c = __query_data_check(appid,ip)
         if not c["result"]:
             return jsonify(r)
         kid = request.args.get('kid','') 
@@ -498,7 +513,8 @@ def h_data(kid):
     try:
         #print "todo 1: check kid and appid"
         appid = request.args.get('appid','') 
-        c = __h_data_check(kid,appid)
+        ip = request.remote_addr
+        c = __h_data_check(kid,appid,ip)
         if not c["result"]:
             return jsonify(c) 
         #print "todo 2: get status,errcode whith no check"
@@ -517,6 +533,7 @@ def h_data(kid):
         page = int(request.args.get('page','1')) 
         print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
+        print q
         data_list = []
         #print "todo 7: get data by page"
         pdatas = q.paginate(page,PER_PAGE,False)
@@ -570,7 +587,7 @@ def i_data():
             r['result'] = False
             r['msg'] = 'invalid import data,please check post data.'
             return r
-        saver = __get_datasaver()
+        saver = __get_dataimportsaver()
         for h in ha:
             saver.save(h)
         etime = datetime.now()
@@ -630,4 +647,5 @@ def apps():
         r["result"]=False
         r["msg"] = e
     return jsonify(r)
+
 

@@ -225,7 +225,6 @@ class loc_statistics(db.Model):
     # {loctype:{auto:124,manual:38},
     #  locsource:{HB_MALS:{130:12,104:9,105:2},HB_Bnet_MALS:{130:12,104:9,105:2},Cli_Device:{}}}
     failed_data =  db.Column(db.String(200))
-
     #def save(self,*args,**kwargs):
     #    return super(loc_statistics,self).save(*args,**kwargs)
 

@@ -19,23 +19,30 @@ class DataLoopMover(Singleton):
     __batch_size = 10000
     __movethreading = None
     __app = None
-    mutex = None
     __txn = None
+    mutex = threading.Lock()
+    __info_his_data_all_rows = 0
+    __info_suffix = ''
+    __info_suffix_st = ''
+    __info_suffix_et = ''
+
     def __init__(self):
         '''单根类，数据源初始化'''
+        self.mutex.acquire()
         if not self.__isinited :
             self.__isinited = True
             print "dataloopmover is init..."
             self.__q = Queue.Queue()
             self.__batch_size = 10000 
-            self.mutex = threading.Lock()
             self.__app = current_app._get_current_object() 
+        self.mutex.release()
 
     def run(self):
         while(True):
             print "start to move his_data %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             try:
                 his_data_rows = self.__m_his_data_rows()
+                self.__info_his_data_all_rows = his_data_rows
                 print "his_data all rows is:%s" % str(his_data_rows)
                 if his_data_rows > self.__batch_size:
                     self.__m_batch_move()
@@ -45,7 +52,7 @@ class DataLoopMover(Singleton):
                 print e
 
     def __start_move(self):
-        if self.__movethreading == None:
+        if self.__movethreading is None:
            self.__start_move_thread() 
         elif self.__movethreading.is_alive:
             return
@@ -161,12 +168,13 @@ class DataLoopMover(Singleton):
                 "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "' order by time;"
         delsqlstr = " delete from his_data where time between '" + st.strftime('%Y-%m-%d %H:%M:%S') +\
                 "' and '" + et.strftime('%Y-%m-%d %H:%M:%S') + "' ;"
-
         with self.__app.app_context():
             try:
                 self.__txn = db.session.begin(subtransactions=True)
                 m = db.session.execute(movesqlstr)
+                print "move rows:%s" % str(m.rowcount)
                 d = db.session.execute(delsqlstr)
+                print "dele rows:%s" % str(d.rowcount)
                 self.__txn.commit()
             except Exception,e:
                 print e
@@ -178,18 +186,23 @@ class DataLoopMover(Singleton):
         """
         try:
             suffix = self.__m_batch_get_min_suffix()
-            print "Min suffix is :%s" % suffix
+            self.__info_suffix = suffix
+            #print "Min suffix is :%s" % suffix
             self.__m_batch_create_suffixtable(suffix)
             st = datetime.datetime.combine(datetime.datetime.strptime(suffix,'%Y%m%d').date(), datetime.time.min)
             et = datetime.datetime.combine(datetime.datetime.strptime(suffix,'%Y%m%d').date(), datetime.time.max)
-            print "move st,et is: %s,%s" %(st.strftime('%Y-%m-%d %H:%M:%S'),et.strftime('%Y-%m-%d %H:%M:%S'))
+            #print "move st,et is: %s,%s" %(st.strftime('%Y-%m-%d %H:%M:%S'),et.strftime('%Y-%m-%d %H:%M:%S'))
             rows = self.__m_batch_get_rows_by_suffix(suffix)
-            print "suffix all rows is :%s" % rows
+            #print "suffix all rows is :%s" % rows
             if rows < self.__batch_size:
                 self.__m_batch_move_data(suffix,st,et) 
+                self.__info_suffix_st = st.strftime('%Y-%m-%d %H:%M:%S')
+                self.__info_suffix_et = et.strftime('%Y-%m-%d %H:%M:%S')
             else:
                 et = self.__m_batch_get_maxtime_for_batch(suffix)
-                print "batch max time is:%s" % et.strftime('%Y-%m-%d %H:%M:%S')
+                self.__info_suffix_st = st.strftime('%Y-%m-%d %H:%M:%S')
+                self.__info_suffix_et = et.strftime('%Y-%m-%d %H:%M:%S')
+                #print "batch max time is:%s" % et.strftime('%Y-%m-%d %H:%M:%S')
                 self.__m_batch_move_data(suffix,st,et)
         except Exception,e:
             print e
@@ -208,4 +221,12 @@ class DataLoopMover(Singleton):
             print e
         return r
 
+    def showinfo(self):
+        r = {}
+        r['his_data_all_rows'] =  self.__info_his_data_all_rows
+        r['move_batch_size'] = self.__batch_size
+        r['move_suffix'] = self.__info_suffix
+        r['move_suffix_st'] = self.__info_suffix_st
+        r['move_suffix_et'] = self.__info_suffix_et
+        return r
 

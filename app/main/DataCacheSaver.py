@@ -19,20 +19,22 @@ class DataCacheSaver(Singleton):
     __batch_size = 500
     __savethreading = None
     __app = None
-    mutex = None
+    mutex = threading.Lock()
     def __init__(self):
         '''单根类，数据源初始化'''
+        self.mutex.acquire()
         if not self.__isinited :
             print "datacachesaver is init..."
             self.__q = Queue.Queue()
             self.__batch_size = 500
-            self.mutex = threading.Lock()
             self.__app = current_app._get_current_object() 
             self.__isinited = True
+        self.mutex.release()
 
     def run(self):
+        idle = 0
         while(True):
-            print datetime.datetime.now()
+            print "start to save import data  %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             try:
                 if not self.__q.empty():
                     self.mutex.acquire()
@@ -50,14 +52,20 @@ class DataCacheSaver(Singleton):
                         print "bluck insert rows:%d" % r.rowcount
                         db.session.commit()
                         print "bluck save is end."
+                    idle = 0
                 else:
                     time.sleep(5)
+                    idle = idle + 1
+                    #more than 30 min empty loop break.
+                    if idle > 360 :
+                        print "import threading is idle,exit break."
+                        break
             except Exception,e:
                 print e
 
     def __start_save(self):
         #print "__start save...."
-        if self.__savethreading == None:
+        if self.__savethreading is None:
            self.__start_save_thread() 
         elif self.__savethreading.is_alive:
             return
@@ -67,6 +75,8 @@ class DataCacheSaver(Singleton):
     def __start_save_thread(self):
         try:
             print "init threading..."
+            if not self.__savethreading is None:
+                self.__savethreading = None 
             self.__savethreading = threading.Thread(target=DataCacheSaver.run,args=(self,))
             print "set threading daemon."
             self.__savethreading.setDaemon(True)
@@ -78,9 +88,11 @@ class DataCacheSaver(Singleton):
     def save(self,his_data):
         try:
             self.__q.put(his_data)
-
             self.__start_save()
         except Exception,e:
             print e
 
-
+    def showinfo(self):
+        r = {}
+        r['queuelen'] = self.__q.qsize()
+        return r
