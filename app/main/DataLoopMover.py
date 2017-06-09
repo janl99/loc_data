@@ -15,7 +15,6 @@ class DataLoopMover(Singleton):
     数据循环批量转移到日表 
     """ 
     __isinited = False
-    __q = None
     __batch_size = 10000
     __movethreading = None
     __app = None
@@ -25,14 +24,13 @@ class DataLoopMover(Singleton):
     __info_suffix = ''
     __info_suffix_st = ''
     __info_suffix_et = ''
-
+    __info_last_active_time =None
     def __init__(self):
         '''单根类，数据源初始化'''
         self.mutex.acquire()
         if not self.__isinited :
             self.__isinited = True
             print "dataloopmover is init..."
-            self.__q = Queue.Queue()
             self.__batch_size = 10000 
             self.__app = current_app._get_current_object() 
         self.mutex.release()
@@ -40,6 +38,7 @@ class DataLoopMover(Singleton):
     def run(self):
         while(True):
             print "start to move his_data %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            self.__info_last_active_time = datetime.datetime.now()
             try:
                 his_data_rows = self.__m_his_data_rows()
                 self.__info_his_data_all_rows = his_data_rows
@@ -223,6 +222,8 @@ class DataLoopMover(Singleton):
 
     def showinfo(self):
         r = {}
+        r['id'] = id(self)
+        r['last_active_time'] = self.__info_last_active_time
         r['his_data_all_rows'] =  self.__info_his_data_all_rows
         r['move_batch_size'] = self.__batch_size
         r['move_suffix'] = self.__info_suffix

@@ -23,6 +23,7 @@ class LocDataSaver(Singleton):
     __batch_size = 100
     __savethreading = None
     __app = None
+    __info_last_active_time = None
     mutex = threading.Lock()
     def __init__(self):
         '''单根类，数据源初始化'''
@@ -33,11 +34,13 @@ class LocDataSaver(Singleton):
             self.__batch_size = 100
             self.__app = current_app._get_current_object() 
             self.__isinited = True
+            self.__start_save()
         self.mutex.release()
 
     def run(self):
         while(True):
             print "start to save loc post data  %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            self.__info_last_active_time  = datetime.datetime.now()
             try:
                 if not self.__q.empty():
                     self.mutex.acquire()
@@ -130,12 +133,14 @@ class LocDataSaver(Singleton):
     def save(self,his_data):
         try:
             self.__q.put(his_data)
-            self.__start_save()
+
         except Exception,e:
             print e
 
     def showinfo(self):
         r = {}
+        r['id'] = id(self)
+        r['last_active_time']= self.__info_last_active_time 
         r['queuelen'] = self.__q.qsize()
         return r
 

@@ -19,6 +19,7 @@ class DataCacheSaver(Singleton):
     __batch_size = 500
     __savethreading = None
     __app = None
+    __info_last_active_time = None
     mutex = threading.Lock()
     def __init__(self):
         '''单根类，数据源初始化'''
@@ -35,6 +36,7 @@ class DataCacheSaver(Singleton):
         idle = 0
         while(True):
             print "start to save import data  %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            self.__info_last_active_time = datetime.datetime.now()
             try:
                 if not self.__q.empty():
                     self.mutex.acquire()
@@ -94,5 +96,7 @@ class DataCacheSaver(Singleton):
 
     def showinfo(self):
         r = {}
+        r['id'] = id(self)
+        r['last_active_time'] = self.__info_last_active_time
         r['queuelen'] = self.__q.qsize()
         return r

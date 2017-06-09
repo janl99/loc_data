@@ -85,6 +85,7 @@ def __Check_AppidAllowed(appid,ip):
     """
     check appid is allowed.
     """
+    #print "check appid and ip is allowed."
     r = __get_requestauthenticate().check(appid,ip) 
     return r 
 
@@ -192,7 +193,7 @@ def __loc_data_check(his_data,ip):
     #print "todo3: check appid is allowed."
     if not __Check_AppidAllowed(his_data.appid,ip):
         r["result"] = False
-        r["msg"] = "appid is not allowed."
+        r["msg"] = "appid is not allowed. appid:" + his_data.appid + " ip:" + ip
         return r
     return r
 
@@ -208,7 +209,7 @@ def __last_data_check(kids,appid,ip):
         return jsonify(r)
     if not __Check_AppidAllowed(appid,ip):
         r["result"] = False
-        r["msg"] = "appid is not allowed."
+        r["msg"] = "appid is not allowed. appid:" + appid + " ip:" + ip
         return r
     ta = kids.split(',')
     if len(ta) <= 0:
@@ -228,7 +229,7 @@ def __query_data_check(appid,ip):
         return jsonify(r)
     if not __Check_AppidAllowed(appid,ip):
         r["result"] = False
-        r["msg"] = "appid is not allowed."
+        r["msg"] = "appid is not allowed. appid:" + appid + " ip:" + ip
         return r
     return r
 
@@ -312,7 +313,7 @@ def __h_data_check(kid,appid,ip):
     #todo2: check appid is allowed.
     if not __Check_AppidAllowed(his_data.appid,ip):
         r["result"] = False
-        r["msg"] = "appid is not allowed."
+        r["msg"] = "appid is not allowed. appid:" + his_data.appid + " ip:" + ip
         return r
 
     return r
@@ -405,12 +406,10 @@ def loc_data():
         if not isinstance(h,his_data):
             r['result'] = False
             r['msg'] = 'invalid his_data,please check post data.'
-            print r['msg']
             return jsonify(r)
         #print "todo3: data check"
         c = __loc_data_check(h,ip)
         if not  c["result"]:
-            print c['msg']
             return jsonify(c)
         __saver = __get_locdatasaver()
         hd = json.loads(val)
@@ -474,7 +473,8 @@ def q_data(appid):
         ip = request.remote_addr
         c = __query_data_check(appid,ip)
         if not c["result"]:
-            return jsonify(r)
+            print c['msg']
+            return jsonify(c)
         kid = request.args.get('kid','') 
         status = request.args.get('status','')
         errcode = request.args.get('errcode','')

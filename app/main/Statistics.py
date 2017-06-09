@@ -20,6 +20,7 @@ class Statistics(Singleton):
     __savethreading = None
     __app = None
     __data = {}
+    __info_last_active_time = None
     mutex = threading.Lock()
     def __init__(self):
         '''单根类，数据源初始化'''
@@ -29,6 +30,7 @@ class Statistics(Singleton):
             self.__app = current_app._get_current_object() 
             self.__data = self.__doload()
             self.__isinited = True
+            self.__start_save()
         self.mutex.release()
 
     def run(self):
@@ -36,12 +38,15 @@ class Statistics(Singleton):
             try:
                 #do save
                 print "do statistics sava start: %s"  % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                self.__info_last_active_time = datetime.datetime.now()
                 self.__dosave()
+                self.__doremove()
                 time.sleep(5*60)
             except Exception,e:
                 print e
 
     def __doload(self):
+        print "do statistics data load..."
         r = {}
         timestr = datetime.datetime.now().strftime('%Y-%m-%d')
         with self.__app.app_context():
@@ -71,7 +76,7 @@ class Statistics(Singleton):
                         try:
                             r[timestr][s.appid]['success'] = json.loads(s.success_data)
                         except Exception,e:
-                            print e
+                            print "ERROR:%s" % e
                             r[timestr][s.appid]['success'] = {}
 
                 if not s.failed_data is None:
@@ -79,7 +84,7 @@ class Statistics(Singleton):
                         try:
                             r[timestr][s.appid]['failed'] = json.loads(s.failed_data)
                         except Exception,e:
-                            print e
+                            print "ERROR:%s" % e
                             r[timestr][s.appid]['failed'] = {}
         return r
 
@@ -106,6 +111,22 @@ class Statistics(Singleton):
                     db.session.add(s)
                     db.session.commit()
 
+    def __doremove(self):
+        kdates = self.__data.keys()
+        if len(kdates) <= 1:
+            return
+        maxkey = kdates[0]
+        for k in kdates:
+            if k > maxkey:
+                maxkey = k
+
+        for k in kdates:
+            if k == maxkey:
+                continue
+            else:
+                del self.__data[k]
+
+
     def __start_save(self):
         #print "__start save...."
         if self.__savethreading is None:
@@ -124,7 +145,7 @@ class Statistics(Singleton):
             print "start statistics sava threading."
             self.__savethreading.start()
         except Exception,e:
-            print e
+            print "ERROR:%s" % e
 
     def count(self,time,appid,kid,status,errcode,loctype,locsource):
         try:
@@ -140,7 +161,7 @@ class Statistics(Singleton):
             else:
                 self.__data[timestr][appid]['allcount']=self.__data[timestr][appid]['allcount'] + 1
 
-            if str(status).strip('') == '1':
+            if str(status) == '1':
                 if not self.__data[timestr][appid].has_key('success'):
                     self.__data[timestr][appid]['success'] = {}
 
@@ -163,13 +184,13 @@ class Statistics(Singleton):
                 if not self.__data[timestr][appid].has_key('failed'):
                     self.__data[timestr][appid]['failed'] = {}
 
-                if not self.__data[timestr][appid]['failed'].has_key['errcode']:
+                if not self.__data[timestr][appid]['failed'].has_key('errcode'):
                     self.__data[timestr][appid]['failed']['errcode'] = {} 
 
-                if not self.__data[timestr][appid]['failed'].has_key['locsource']:
+                if not self.__data[timestr][appid]['failed'].has_key('locsource'):
                     self.__data[timestr][appid]['failed']['locsource'] = {} 
 
-                if not self.__data[timestr][appid]['failed'].has_key['loctype']:
+                if not self.__data[timestr][appid]['failed'].has_key('loctype'):
                     self.__data[timestr][appid]['failed']['loctype'] = {}
 
                 if not self.__data[timestr][appid]['failed']['errcode'].has_key(errcode):
@@ -181,17 +202,18 @@ class Statistics(Singleton):
                     self.__data[timestr][appid]['failed']['locsource'][locsource] = 1
                 else:
                     self.__data[timestr][appid]['failed']['locsource'][locsource] = self.__data[timestr][appid]['failed']['locsource'][locsource] + 1
-
                 if not self.__data[timestr][appid]['failed']['loctype'].has_key(loctype):
                     self.__data[timestr][appid]['failed']['loctype'][loctype] = 1
                 else:
                     self.__data[timestr][appid]['failed']['loctype'][loctype] = self.__data[timestr][appid]['failed']['loctype'][loctype] + 1
 
-            self.__start_save()
         except Exception,e:
             print e
 
     def showinfo(self):
         self.__dosave()
-        r = self.__data.copy() 
+        r = {}
+        r['id'] = id(self)
+        r['last_active_time'] = self.__info_last_active_time 
+        r['data'] = self.__data;
         return r
