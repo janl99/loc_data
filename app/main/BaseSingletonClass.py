@@ -12,13 +12,16 @@ import time
 class Singleton(object):
     '''单例类基类'''
     _instance = None
-    lock = threading.RLock()
+    lock = threading.Lock()
 
     def __new__(cls,*args,**kw):
-        cls.lock.acquire()
-        if cls._instance is None:
-            cls._instance = super(Singleton,cls).__new__(cls)
-        cls.lock.release()
+        if not cls._instance:
+            try:
+                cls.lock.acquire()
+                if not cls._instance:
+                    cls._instance = super(Singleton,cls).__new__(cls,*args,**kwargs)
+            finally:
+                cls.lock.release()
         return cls._instance
 
 
