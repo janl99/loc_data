@@ -14,7 +14,7 @@ class Singleton(object):
     _instance = None
     lock = threading.Lock()
 
-    def __new__(cls,*args,**kw):
+    def __new__(cls,*args,**kwargs):
         if not cls._instance:
             try:
                 cls.lock.acquire()
