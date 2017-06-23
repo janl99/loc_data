@@ -220,11 +220,11 @@ class loc_statistics(db.Model):
     app_count =     db.Column(db.Integer) 
     # json data like:
     # {loctype:{auto:12834,manual:328},locsource:{HB_MALS:28123,HB_Bnet_MALS:39489,Cli_Device:3043904}}
-    success_data =  db.Column(db.String(500)) 
+    success_data =  db.Column(db.String(1000)) 
     # json data like:
     # {loctype:{auto:124,manual:38},
     #  locsource:{HB_MALS:{130:12,104:9,105:2},HB_Bnet_MALS:{130:12,104:9,105:2},Cli_Device:{}}}
-    failed_data =  db.Column(db.String(500))
+    failed_data =  db.Column(db.String(1000))
     #def save(self,*args,**kwargs):
     #    return super(loc_statistics,self).save(*args,**kwargs)
 

@@ -29,6 +29,7 @@ class DataCacheSaver(Singleton):
             self.__q = Queue.Queue()
             self.__batch_size = 500
             self.__app = current_app._get_current_object() 
+            self.__info_last_active_time = datetime.datetime.now()
             self.__isinited = True
         self.mutex.release()
 

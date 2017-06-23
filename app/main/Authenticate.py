@@ -26,7 +26,12 @@ class Authenticate(Singleton):
             print "autheenticate is init..."
             self.__data = {}
             self.__app = current_app._get_current_object() 
-            self.loadconfig()
+            with self.__app.app_context():
+                t = db.session.query(app).all()
+                self.__data.clear()
+                for a in t:
+                    self.__data[a.appid] = a.token.split(',')
+            self.__info_last_active_time = datetime.datetime.now()
             self.__isinited = True
         self.mutex.release()
 
@@ -35,11 +40,11 @@ class Authenticate(Singleton):
             with self.__app.app_context():
                 t = db.session.query(app).all()
                 print t 
-                #self.mutex.acquire()
+                self.mutex.acquire()
                 self.__data.clear()
                 for a in t:
                     self.__data[a.appid] = a.token.split(',')
-                #self.mutex.release()
+                self.mutex.release()
         except Exception,e:
             print e
 

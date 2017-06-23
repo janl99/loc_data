@@ -1,0 +1,2 @@
+alter table loc_statistics modify success_data varchar(1000);
+alter table loc_statistics modify failed_data varchar(1000);

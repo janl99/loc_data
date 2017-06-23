@@ -72,9 +72,16 @@ def index():
 
 def status():
     data = {}
-    data['Authenticate'] = __get_requestauthenticate().showinfo() 
+    if __get_requestauthenticate():
+        data['Authenticate'] = __get_requestauthenticate().showinfo() 
+    if __get_datamover():
+        data['DataLoopMover'] = __get_datamover().showinfo()
+    if __get_statistics(): 
+        data['Statistics'] = __get_statistics().showinfo()
     data['LocDataSaver'] = __get_locdatasaver().showinfo()
     data['ImportSaver'] = __get_dataimportsaver().showinfo()
-    data['DataLoopMover'] = __get_datamover().showinfo()
-    data['Statistics'] = __get_statistics().showinfo()
     return jsonify(data) 
+
+def reload_app():
+    __get_requestauthenticate().loadconfig()
+    return "OK"

@@ -8,3 +8,4 @@ main = Blueprint('main', __name__)
 
 main.add_url_rule('/', 'index', views.index)
 main.add_url_rule('/status','status',views.status)
+main.add_url_rule('/reloadapp','reloadapp',views.reload_app)

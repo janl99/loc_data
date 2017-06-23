@@ -35,6 +35,7 @@ class LocDataSaver(Singleton):
             self.__app = current_app._get_current_object() 
             self.__isinited = True
             self.__start_save()
+            self.__info_last_active_time = datetime.datetime.now()
         self.mutex.release()
 
     def run(self):
@@ -49,7 +50,6 @@ class LocDataSaver(Singleton):
                         if self.__q.empty():
                             break
                         h = self.__q.get()
-                        #print h
                         da.append(h)
                     self.mutex.release()
                     print "loc data queue len:%s"  % str(self.__q.qsize())
@@ -62,14 +62,12 @@ class LocDataSaver(Singleton):
                             rediskey = self.__get_redis_Key(h['appid'],h['kid'])
                             redis_data = schema.dumps(h).data
                             redis.set(rediskey,redis_data)
-                            #print "set redis data"
                             t = datetime.datetime.strptime(h['time'],'%Y-%m-%dT%H:%M:%S.%f')
                             self.__update_last_data(h['appid'],h['kid'],h['status'],h['errcode'],h['loctype'],h['locsource'],t)
-                            #print "update last data."
                             self.__update_statistics(t,h['appid'],h['kid'],h['status'],h['errcode'],h['loctype'],h['locsource'])
                         print "loc data bluck save is end."
                 else:
-                    time.sleep(5)
+                    time.sleep(60)
             except Exception,e:
                 print e
 
@@ -133,7 +131,6 @@ class LocDataSaver(Singleton):
     def save(self,his_data):
         try:
             self.__q.put(his_data)
-
         except Exception,e:
             print e
 

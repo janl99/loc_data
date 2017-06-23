@@ -6,13 +6,13 @@ import datetime
 import Queue
 import json
 import copy
-from BaseSingletonClass import Singleton
+from BaseSingletonClass import Global_Singleton
 from loc_data import db
 from flask import current_app
 from .models import loc_statistics
 import time
 
-class Statistics(Singleton):
+class Statistics(Global_Singleton):
     """
     批量数据导入时，批量缓存
     """ 
@@ -22,13 +22,15 @@ class Statistics(Singleton):
     __data = {}
     __info_last_active_time = None
     mutex = threading.Lock()
+
     def __init__(self):
         '''单根类，数据源初始化'''
         self.mutex.acquire()
         if not self.__isinited :
             print "loc data statistics is init..."
             self.__app = current_app._get_current_object() 
-            self.__data = self.__doload()
+            #self.__data = self.__doload()
+            self.__info_last_active_time = datetime.datetime.now()
             self.__isinited = True
             self.__start_save()
         self.mutex.release()
@@ -39,14 +41,18 @@ class Statistics(Singleton):
                 #do save
                 print "do statistics sava start: %s"  % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 self.__info_last_active_time = datetime.datetime.now()
-                self.__dosave()
-                self.__doremove()
-                time.sleep(5*60)
+                if (self.gl_acquire(self)):
+                    self.__dosave()
+                else:
+                    time.sleep(60)
             except Exception,e:
                 print e
+            finally:
+                self.gl_release(self)
+                time.sleep(5*60)
 
     def __doload(self):
-        print "do statistics data load..."
+        print "Statistics is doing load data."
         r = {}
         timestr = datetime.datetime.now().strftime('%Y-%m-%d')
         with self.__app.app_context():
@@ -72,7 +78,7 @@ class Statistics(Singleton):
                     r[timestr][s.appid]['failed'] = {}
 
                 if not s.success_data is None:
-                    if len(s.success_data) > 2:
+                    if len(s.success_data) > 1:
                         try:
                             r[timestr][s.appid]['success'] = json.loads(s.success_data)
                         except Exception,e:
@@ -80,7 +86,7 @@ class Statistics(Singleton):
                             r[timestr][s.appid]['success'] = {}
 
                 if not s.failed_data is None:
-                    if len(s.failed_data) > 2:
+                    if len(s.failed_data) > 1:
                         try:
                             r[timestr][s.appid]['failed'] = json.loads(s.failed_data)
                         except Exception,e:
@@ -91,6 +97,7 @@ class Statistics(Singleton):
     def __dosave(self):
         self.mutex.acquire()
         t = copy.deepcopy(self.__data)
+        self.__data.clear()
         self.mutex.release()
         for kdate in t.keys():
             d = t[kdate]
@@ -102,14 +109,60 @@ class Statistics(Singleton):
                         s.id = None
                         s.date = kdate
                         s.appid = kappid
-                    if d[kappid].has_key('allcount'):
-                        s.app_count = d[kappid]['allcount']
-                    if d[kappid].has_key('success'):
-                        s.success_data = json.dumps(d[kappid]['success'])
-                    if d[kappid].has_key('failed'):
-                        s.failed_data = json.dumps(d[kappid]['failed'])
+                        if d[kappid].has_key('allcount'):
+                            s.app_count = d[kappid]['allcount']
+                        else:
+                            s.app_count = 0
+                        if d[kappid].has_key('success'):
+                            s.success_data = json.dumps(d[kappid]['success'])
+                        else:
+                            s.success_data = "{}"
+                        if d[kappid].has_key('failed'):
+                            s.failed_data = json.dumps(d[kappid]['failed'])
+                        else:
+                            s.failed_data = "{}"
+                    else:
+                        if d[kappid].has_key('allcount'):
+                            s.app_count += d[kappid]['allcount']
+                        sd = self._get_dict(s.success_data)
+                        if d[kappid].has_key('success'):
+                            s.success_data = json.dumps(self._merge_dict(d[kappid]['success'],sd))
+                        fd = self._get_dict(s.failed_data)
+                        if d[kappid].has_key('failed'):
+                            s.failed_data  = json.dumps(self._merge_dict(d[kappid]['failed'],fd))
                     db.session.add(s)
                     db.session.commit()
+                    print "do statistics save.allcount:%s,success_data:%s,failed_data:%s" % (str(s.app_count),s.success_data,s.failed_data)
+
+    def _get_dict(self,val):
+        r = {}
+        if val is None:
+            return r
+        if val == "null":
+            return r
+        if len(val) <= 2:
+            return r
+        try:
+            r = json.loads(val)
+        except Exception,e:
+            print "ERROR:%s" % e
+            r = {}
+        if r is None:
+            r = {}
+        return r
+
+    def _merge_dict(self,x,y):
+        if x is None:
+            return y
+        for k,v in x.items():
+            if k in y.keys():
+                if type(y[k]) is dict and type(v) is dict:
+                    y[k] = self._merge_dict(v,y[k])
+                else:
+                    y[k] += v
+            else:
+                y[k] = v
+        return y
 
     def __doremove(self):
         kdates = self.__data.keys()
@@ -126,9 +179,7 @@ class Statistics(Singleton):
             else:
                 del self.__data[k]
 
-
     def __start_save(self):
-        #print "__start save...."
         if self.__savethreading is None:
            self.__start_save_thread() 
         elif self.__savethreading.is_alive:
@@ -206,14 +257,12 @@ class Statistics(Singleton):
                     self.__data[timestr][appid]['failed']['loctype'][loctype] = 1
                 else:
                     self.__data[timestr][appid]['failed']['loctype'][loctype] = self.__data[timestr][appid]['failed']['loctype'][loctype] + 1
-
         except Exception,e:
             print e
 
     def showinfo(self):
-        self.__dosave()
         r = {}
         r['id'] = id(self)
         r['last_active_time'] = self.__info_last_active_time 
-        r['data'] = self.__data;
+        r['data'] = self.__doload()
         return r

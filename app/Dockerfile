@@ -18,7 +18,7 @@ RUN mkdir -p /etc/supervisor.conf.d && \
 RUN mkdir -p /usr/src/app && mkdir -p /var/log/gunicorn
 WORKDIR /usr/src/app
 ADD requirements.txt /usr/src/app/requirements.txt
-RUN pip install -r /usr/src/app/requirements.txt
+RUN pip install -r /usr/src/app/requirements.txt -i http://pypi.doubanio.com/simple
 
 COPY . /usr/src/app
 RUN ln -s /usr/src/app/loc_data_nginx.conf /etc/nginx/sites-enabled
