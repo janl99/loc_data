@@ -311,9 +311,9 @@ def __h_data_check(kid,appid,ip):
         r["msg"] = "invalid appid."
         return r
     #todo2: check appid is allowed.
-    if not __Check_AppidAllowed(his_data.appid,ip):
+    if not __Check_AppidAllowed(appid,ip):
         r["result"] = False
-        r["msg"] = "appid is not allowed. appid:" + his_data.appid + " ip:" + ip
+        r["msg"] = "appid is not allowed. appid:" + appid + " ip:" + ip
         return r
 
     return r
@@ -511,31 +511,32 @@ def h_data(kid):
     stime = datetime.now()
     r = __get_result()
     try:
-        #print "todo 1: check kid and appid"
+        print "todo 1: check kid and appid"
         appid = request.args.get('appid','') 
         ip = request.remote_addr
         c = __h_data_check(kid,appid,ip)
+        print c
         if not c["result"]:
             return jsonify(c) 
-        #print "todo 2: get status,errcode whith no check"
+        print "todo 2: get status,errcode whith no check"
         status = request.args.get('status','')
         errcode = request.args.get('errorcode','')
-        #print "todo 3: get stime and etime"
+        print "todo 3: get stime and etime"
         s = request.args.get('stime','')
         e = request.args.get('etime','')
         ct,st,et = __h_data_check_time(s,e)
         if not ct["result"]:
             return jsonify(ct)
-        #print "todo 4: get loctype,locsource"
+        print "todo 4: get loctype,locsource"
         loctype =  request.args.get('loctype','')
         locsource = request.args.get('locsource','')
-        #print "todo 5 get page param"
+        print "todo 5 get page param"
         page = int(request.args.get('page','1')) 
         print "todo 6: build query" 
         q = __build_hisdata_query(appid,kid,st,et,status,errcode,loctype,locsource)
         print q
         data_list = []
-        #print "todo 7: get data by page"
+        print "todo 7: get data by page"
         pdatas = q.paginate(page,PER_PAGE,False)
         data_list = pdatas.items
         etime = datetime.now()
